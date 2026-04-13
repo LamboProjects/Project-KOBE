@@ -76,6 +76,7 @@ Built on OpenClaw + Claude, with local STT (faster-whisper on RTX 3060) and Elev
 | [Voice Assistant Plan](./docs/Project%20KOBE%20-%20Voice%20Assistant%20Plan.md) | Voice pipeline options and quick-start plan |
 | [Architecture](./docs/ARCHITECTURE.md) | System architecture (coming soon) |
 | [Budget](./docs/BUDGET.md) | Hardware + API costs in CAD |
+| [Bill of Materials](./docs/BOM.md) | Full BOM with exact prices and purchase links |
 | [Roadmap](./ROADMAP.md) | Phased build roadmap |
 
 ---
