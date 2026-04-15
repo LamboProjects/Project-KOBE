@@ -823,6 +823,31 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression: MediaPipe flicker during a continuous hold (single
+    # unmapped-label frame every 10 frames). The user is clearly still
+    # holding the same pose, so only ONE confirm must fire. Without
+    # release-detection preservation (Codex review P1 fix), the flicker
+    # clears the hold-lock; after the 1200 ms cooldown expires 5 further
+    # good frames can trigger a second FP. This case is a canary: any
+    # regression that makes the lock fragile against noise lights it up.
+    flicker = []
+    for i in range(60):
+        if i % 10 == 9:
+            # One unmapped, low-score "Victory" frame — hand present, label
+            # not in _PRETRAINED_MAP, so classifier drops it into NONE_LABEL
+            # via the same branch that the broken fix used to clear the lock.
+            flicker.append(frame(i, "Victory", 0.4))
+        else:
+            flicker.append(frame(i, "Thumb_Up", 0.9))
+    cases.append(
+        StreamCase(
+            name="hard_flicker_during_hold",
+            frames=flicker,
+            expected_events=[("confirm", 0, 10)],
+            forbidden_events=["dismiss", "point", "swipe_left", "swipe_right"],
+        )
+    )
+
     # Spec: brief but unambiguous gesture (4 strong Thumb_Up frames, then
     # natural release) should fire confirm. Current implementation requires 5
     # of 6, so this never fires → FN at default settings.
