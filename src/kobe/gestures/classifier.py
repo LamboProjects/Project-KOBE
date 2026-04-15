@@ -207,7 +207,19 @@ class GestureClassifier:
                     # cross-semantic fire on the same tick. Without this,
                     # a sustained `Closed_Fist` misclassification during a
                     # Thumb_Up hold would clear the lock then immediately
-                    # fire `dismiss` from the same five bad frames.
+                    # fire `dismiss` from the same five bad frames
+                    # (Codex review round 7 P1).
+                    #
+                    # Design tradeoff (Codex review round 8 P2): a
+                    # legitimate direct pose switch (Thumb_Up → Closed_Fist
+                    # without releasing the hand) now pays ~4 extra frames
+                    # of latency because the new gesture has to debounce
+                    # from an empty buffer. We accept that cost: the
+                    # alternative is firing opposite-semantic commands on
+                    # MediaPipe misclassifications, which is strictly
+                    # worse UX for a confirm/dismiss/point system. The
+                    # classifier's debounce contract ("N sustained frames
+                    # of evidence before firing") stays symmetric this way.
                     self._static_labels.clear()
                     self._static_scores.clear()
                     self._static_hands.clear()

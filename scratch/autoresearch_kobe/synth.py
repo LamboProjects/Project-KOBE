@@ -823,6 +823,27 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression: direct pose switch WITHOUT releasing hand must still
+    # eventually fire the new gesture, just with the design-accepted
+    # latency penalty from draining the vote buffer on release (see
+    # classifier.py for the Codex review round 8 tradeoff rationale).
+    # User holds Thumb_Up (fire confirm), then directly forms Closed_Fist
+    # (expect dismiss). Dismiss fires ~8 frames after Closed_Fist starts
+    # (5-frame release-streak crossing + 5-frame fresh debounce - 2
+    # overlap = 8).
+    direct_switch = (
+        [frame(i, "Thumb_Up", 0.9) for i in range(10)]
+        + [frame(10 + i, "Closed_Fist", 0.9) for i in range(20)]
+    )
+    cases.append(
+        StreamCase(
+            name="hard_direct_pose_switch",
+            frames=direct_switch,
+            expected_events=[("confirm", 0, 4), ("dismiss", 10, 24)],
+            forbidden_events=["point", "swipe_left", "swipe_right"],
+        )
+    )
+
     # Regression (Codex review round 7 P1): sustained cross-semantic
     # misclassification must not produce a spurious cross-semantic fire
     # when the release streak crosses threshold. User holds Thumb_Up
