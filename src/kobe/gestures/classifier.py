@@ -77,6 +77,13 @@ class GestureClassifier:
         self._swipe_streak_dir: str | None = None
         self._swipe_streak_count: int = 0
         self._last_fire_ms: dict[str, int] = {}
+        # Release-detection guard: after a static fires, record the KOBE name
+        # so a *continuously-held* pose can't re-fire the moment the cooldown
+        # expires. Cleared on (a) no-hand frame, (b) a valid static frame
+        # whose KOBE mapping differs from the held name. Without this, a held
+        # Thumb_Up fires once at frame ~5, then re-fires around frame
+        # 5+cooldown/33 as the deque refills — an FP at real UX.
+        self._static_hold_lock: str | None = None
 
     # ------------------------------------------------------------------ API
 
@@ -90,6 +97,7 @@ class GestureClassifier:
         self._swipe_streak_dir = None
         self._swipe_streak_count = 0
         self._last_fire_ms.clear()
+        self._static_hold_lock = None
 
     def push(self, frame: "FrameResult") -> list[GestureEvent]:
         """Append a frame and return any gestures that fire on this tick.
@@ -114,6 +122,9 @@ class GestureClassifier:
             self._static_scores.clear()
             self._static_hands.clear()
             self._static_raw_labels.clear()
+            # No-hand counts as release — drop the hold-lock so the next
+            # formed pose can fire once cooldown expires.
+            self._static_hold_lock = None
             return events
 
         self._ingest_static(frame, has_hand)
@@ -143,12 +154,22 @@ class GestureClassifier:
             self._static_scores.append(0.0)
             self._static_hands.append("")
             self._static_raw_labels.append("")
+            # A frame with no usable KOBE label counts as "not the held pose",
+            # so a held confirm followed by a blank frame releases the lock
+            # and the next confirm pose is free to fire.
+            if self._static_hold_lock is not None:
+                self._static_hold_lock = None
             return
         self._static_labels.append(kobe_label)
         self._static_scores.append(score)
         hand = (frame.handedness or "").lower()
         self._static_hands.append(hand if hand in ("left", "right") else "")
         self._static_raw_labels.append(raw)
+        # Release-detection: any frame whose KOBE mapping differs from the
+        # held-locked name counts as "user moved to a different pose", so
+        # clear the lock and let the new pose's vote fire normally.
+        if self._static_hold_lock is not None and kobe_label != self._static_hold_lock:
+            self._static_hold_lock = None
 
     def _maybe_fire_static(self, ts_ms: int) -> GestureEvent | None:
         required = int(self._s.gesture_static_required)
@@ -161,10 +182,20 @@ class GestureClassifier:
         winner = next((n for n, c in counts.items() if c >= required), None)
         if winner is None:
             return None
+        if winner == self._static_hold_lock:
+            # User is still holding the same pose that last fired. Drain the
+            # window so the vote doesn't keep computing the same winner every
+            # frame, but do NOT emit — a continuous hold must release before
+            # re-firing.
+            self._static_labels.clear()
+            self._static_scores.clear()
+            self._static_hands.clear()
+            self._static_raw_labels.clear()
+            return None
         if self._is_on_cooldown(winner, ts_ms):
-            # Clear the window during cooldown too — otherwise the same vote
-            # would simply re-trigger the moment the cooldown expires, even
-            # though the user never released the pose.
+            # Cooldown still running (user released and re-formed too fast).
+            # Clear the window so we don't burn CPU re-computing the same
+            # winner; the next fresh buffer fills after cooldown expires.
             self._static_labels.clear()
             self._static_scores.clear()
             self._static_hands.clear()
@@ -188,6 +219,9 @@ class GestureClassifier:
         self._static_scores.clear()
         self._static_hands.clear()
         self._static_raw_labels.clear()
+        # Arm the hold-lock: until we see a non-winner frame (or the hand
+        # disappears), this winner won't re-fire, independent of cooldown.
+        self._static_hold_lock = winner
         return self._emit(
             winner,
             confidence,
