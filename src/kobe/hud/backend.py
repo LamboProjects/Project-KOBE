@@ -107,6 +107,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     last_system: dict[str, Any] | None = None
     last_printer: dict[str, Any] | None = None
     last_now_playing: dict[str, Any] | None = None
+    last_vision: dict[str, Any] | None = None
     outbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=256)
 
     def snapshot() -> dict[str, Any]:
@@ -116,6 +117,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
             "system": last_system,
             "printer": last_printer,
             "now_playing": last_now_playing,
+            "vision": last_vision,
         }
         return {"type": "HudSnapshot", "data": data, "state": state["value"]}
 
@@ -205,7 +207,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     ]
 
     async def _consume(event_type: type, q: asyncio.Queue) -> None:
-        nonlocal last_response, last_system, last_printer, last_now_playing
+        nonlocal last_response, last_system, last_printer, last_now_playing, last_vision
         name = event_type.__name__
         while True:
             event = await q.get()
@@ -226,6 +228,14 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
                 last_printer = data
             elif isinstance(event, kevents.NowPlayingChanged):
                 last_now_playing = data
+            elif isinstance(event, kevents.VisionResult):
+                # Strip the server-local image_path before EITHER caching or
+                # broadcasting — the HUD has no route that serves screenshot
+                # files, and shipping the path to every browser would invite
+                # scraping when VISION_SAVE_SCREENSHOTS=true.
+                data = dict(data)
+                data.pop("image_path", None)
+                last_vision = data
 
             state["value"] = _derive_state(state["value"], event)
             enqueue({"type": name, "data": data, "state": state["value"]})

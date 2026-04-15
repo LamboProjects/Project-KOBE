@@ -105,15 +105,23 @@ class Settings(BaseSettings):
     confirmation_yes_words: str = "yes,yeah,yep,confirm,confirmed,do it,go ahead,sure"
     confirmation_no_words: str = "no,nope,cancel,stop,nevermind,never mind,abort"
 
-    # Screen vision (Phase 4 foundation)
+    # Screen vision
     vision_enabled: bool = True
     # Which backend analyses the screenshot. "null" = foundation stub (no model call).
-    # Future values: "openclaw" | "openai" | "local". Unconfigured backends fall back
-    # to null with a warning.
+    # Real backends: "openclaw" | "openai". Unconfigured backends fall back to null.
     vision_backend: str = "null"
     vision_save_screenshots: bool = False
     vision_screenshot_dir: str = "scratch/vision"
     vision_max_capture_seconds: float = 5.0
+    # JPEG quality for over-the-wire transport (smaller payload than PNG).
+    vision_jpeg_quality: int = 80
+    # Cap the long edge before encoding so we don't ship a 4K screenshot to the API.
+    vision_max_edge_px: int = 1568
+    # OpenAI vision model (cheap default).
+    openai_vision_model: str = "gpt-4o-mini"
+    # OpenClaw vision endpoint path appended to openclaw_api_url.
+    openclaw_vision_path: str = "/v1/vision"
+    openclaw_vision_timeout_s: float = 30.0
 
     @property
     def confirmation_yes_list(self) -> list[str]:

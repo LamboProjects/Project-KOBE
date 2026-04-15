@@ -36,6 +36,8 @@ from kobe.events import (
 )
 from kobe.vision import capture as capture_mod
 from kobe.vision.backends import build_backend, VisionBackend
+from kobe.vision.context import detect_context
+from kobe.vision.specialists import augment_question
 
 log = structlog.get_logger(__name__)
 
@@ -124,9 +126,27 @@ async def _run_once(
         except Exception as exc:  # noqa: BLE001
             log.warning("vision_save_failed", request_id=request_id, error=str(exc))
 
+    # Per-app context routing: classify the foreground window, then wrap the user
+    # question with app-specific framing so the backend gets a sharper prompt.
+    # Both of these are pure string ops — no I/O — so we don't need to_thread.
+    context = detect_context(shot.window_title)
+    prepared_question = augment_question(question, context)
+    # The null backend echoes its `question` arg back to the user. If we feed it
+    # the augmented prompt the user/HUD would see internal framing like
+    # "VS Code editor. Identify... User question: ..." instead of their actual
+    # question. Real model backends benefit from the framing, so they get it.
+    backend_question = question if backend.name == "null" else prepared_question
+    log.info(
+        "vision_context_resolved",
+        request_id=request_id,
+        context=context.name,
+        app_label=context.app_label,
+        window_title=shot.window_title[:80],
+        augmented=backend.name != "null",
+    )
+
     try:
-        summary = await backend.analyse(shot, question)
-        ok = True
+        ok, summary = await backend.analyse(shot, backend_question)
     except Exception as exc:  # noqa: BLE001 - backends promise not to raise,
         # but we defend in depth so TTS always has something to say.
         log.exception("vision_backend_error", backend=backend.name, error=str(exc))
@@ -142,6 +162,8 @@ async def _run_once(
         backend=backend.name,
         image_path=image_path,
         timestamp_iso=_now_iso(),
+        mode=shot.mode,
+        context_name=context.name,
     )
     await bus.publish(result)
     await bus.publish(ResponseReady(request_id=request_id, text=summary))

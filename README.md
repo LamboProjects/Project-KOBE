@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Phase%203%20Complete-00D4FF?style=for-the-badge&logo=github" />
+  <img src="https://img.shields.io/badge/Status-Phase%204%20Complete-00D4FF?style=for-the-badge&logo=github" />
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows" />
   <img src="https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia" />
   <img src="https://img.shields.io/badge/AI-Claude%20Sonnet-8A2BE2?style=for-the-badge&logo=anthropic" />
@@ -46,7 +46,7 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 | 🖥️ **Windows** | System volume via pycaw, window focus/min/max via pygetwindow, show-desktop | ✅ Built |
 | 🛑 **Safety** | Confirmation flow for destructive actions (yes/no voice challenge before cancel/pause) | ✅ Built |
 | 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned (Phase 5) |
-| 👁️ **Screen Vision** | mss capture + pluggable `VisionBackend` (NullBackend stub today) | 🟡 Foundation built (Phase 4) |
+| 👁️ **Screen Vision** | mss capture + OpenAI gpt-4o-mini / OpenClaw multipart backends + 14-app context routing + per-app specialists + HUD panel | ✅ Built |
 | ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned (Phase 7) |
 
 ---
@@ -57,7 +57,7 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 Phase 1 ──── Core Voice MVP          ✅
 Phase 2 ──── HUD Display             ✅
 Phase 3 ──── Printer & Productivity  ✅
-Phase 4 ──── Screen Vision           🔲
+Phase 4 ──── Screen Vision           ✅
 Phase 5 ──── Gesture Control         🔲
 Phase 6 ──── Premium Polish          🔲
 Phase 7 ──── Holographic Fan         🔲

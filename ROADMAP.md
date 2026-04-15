@@ -57,18 +57,19 @@
 
 ---
 
-## Phase 4 — 👁️ Screen Vision & Context Awareness  🟡 *foundation only*
+## Phase 4 — 👁️ Screen Vision & Context Awareness  ✅
 
 **Goal:** Increase usefulness during active work.
 
 > *Success: KOBE can interpret what's on screen in a practical, helpful way.*
 
-- [x] **Foundation**: capture primitives (`mss` foreground/full/region — region requires a valid box, never silently widens to all monitors), pluggable `VisionBackend` protocol, `NullBackend` stub, async `vision_service` wired into the bus and the `screen_inspect` action namespace
-- [ ] On-demand screen inspection (`what's on my screen?`) — needs a real backend
-- [ ] Active app context detection — `SystemStatus.foreground_app` already published; needs prompt routing
-- [ ] Coding help in VS Code context — needs Claude/OpenAI vision backend wired
-- [ ] Print settings review in Bambu Studio
-- [ ] CAD troubleshooting assistance
+- [x] Foundation: `mss` capture (foreground / full / region — region requires a valid box, never silently widens), pluggable `VisionBackend` protocol with `NullBackend` stub, async `vision_service` wired into the bus and the `screen_inspect` action namespace
+- [x] **Real backends**: `OpenAIBackend` (gpt-4o-mini default, JPEG over data-URL) and `OpenClawBackend` (multipart POST to your VPS' `/v1/vision`). Both return `(ok, text)` so the HUD/ActionCompleted can distinguish a real answer from a fallback string
+- [x] On-demand screen inspection (`what's on my screen?`) via `VisionRequested` event or `ActionRequested("screen_inspect", {...})` from the brain
+- [x] Active app context detection — `kobe.vision.context.detect_context(window_title)` classifies into 14 known apps + `generic`; pure function, ordered substring rules
+- [x] Per-app specialists — `kobe.vision.specialists.augment_question(question, context)` wraps the user's question with app-specific framing for VS Code, Bambu Studio, FreeCAD, Fusion 360, Blender, Obsidian, Chrome/Firefox, Excel, Slack/Discord, terminal, Explorer
+- [x] HUD vision panel — last-scan summary + meta + question, `SCANNING…` shimmer with 45 s safety timer, `HudSnapshot` hydration on reconnect
+- [x] Privacy: `image_path` is stripped from every WebSocket payload (cache + broadcast) so the HUD never receives a server-local file path
 
 ---
 

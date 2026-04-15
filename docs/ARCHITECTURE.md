@@ -97,9 +97,11 @@ hud_backend updates display
 | `discord_alerts` | `src/kobe/integrations/discord.py` | Webhook poster on `PrinterAlert`, 3 s dedupe | 3 | ✅ |
 | `windows_automation` | `src/kobe/automation/windows_ctrl.py` | pycaw volume + pygetwindow focus/min/max + win+d | 3 | ✅ |
 | `confirmation_manager` | `src/kobe/actions/confirmation.py` | Destructive-action yes/no voice challenge, sequential | 3 | ✅ |
-| `vision_service` | `src/kobe/vision/service.py` | Captures the screen on `screen_inspect` action or `VisionRequested` event, runs a pluggable `VisionBackend`, publishes `VisionResult` + `ResponseReady`. Phase 4 foundation ships only the `NullBackend` stub. | 4 | 🟡 foundation |
+| `vision_service` | `src/kobe/vision/service.py` | Captures the screen on `screen_inspect` action or `VisionRequested` event, classifies the foreground app via `detect_context`, augments the prompt via `augment_question` (skipped for `null` backend), runs the configured `VisionBackend`, publishes `VisionResult(ok, summary, mode, context_name, …)` + `ResponseReady`. | 4 | ✅ |
 | `vision_capture` | `src/kobe/vision/capture.py` | mss-based screenshot for foreground/full/region. region requires a valid box (no silent widening). | 4 | ✅ |
-| `vision_backends` | `src/kobe/vision/backends.py` | `VisionBackend` Protocol + `build_backend(settings)` factory. Real backends (OpenClaw, OpenAI, Moondream) come later. | 4 | 🟡 |
+| `vision_backends` | `src/kobe/vision/backends.py` | `VisionBackend` Protocol returning `(ok, text)` + `NullBackend` stub + `OpenAIBackend` (gpt-4o-mini) + `OpenClawBackend` (multipart POST). Shared `encode_jpeg(shot, q, max_edge)` downsamples + JPEG-encodes. | 4 | ✅ |
+| `vision_context` | `src/kobe/vision/context.py` | Pure `detect_context(window_title) → WindowContext`. 14 known apps (vscode, bambu_studio, freecad, fusion360, blender, obsidian, chrome, firefox, terminal, excel, slack, discord, explorer, fallback `generic`). | 4 | ✅ |
+| `vision_specialists` | `src/kobe/vision/specialists.py` | Per-app prompt augmentation. `augment_question(q, ctx)` returns a string that prefixes app-specific framing then appends the user question. | 4 | ✅ |
 | `gesture_service` | `src/kobe/gestures/` | Webcam hand tracking | 5 | 🔲 |
 | `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
 

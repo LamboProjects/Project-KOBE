@@ -187,6 +187,25 @@
       </div>
     </section>
 
+    <!-- Vision panel (last screen-inspection result) -->
+    <section class="panel vision-panel" id="vision-panel" data-status="empty" data-scanning="false">
+      <div class="panel-header">
+        <span class="panel-title">VISION · LAST SCAN</span>
+        <span class="panel-meta vision-status" id="vision-status">—</span>
+      </div>
+      <div class="vision-body">
+        <div class="vision-placeholder" id="vision-placeholder">— no scan yet —</div>
+        <div class="vision-content" id="vision-content" hidden>
+          <div class="vision-question" id="vision-question" hidden></div>
+          <div class="vision-summary" id="vision-summary"></div>
+          <div class="vision-meta" id="vision-meta">—</div>
+        </div>
+        <div class="vision-shimmer" aria-hidden="true">
+          <span class="vision-shimmer-label">SCANNING&hellip;</span>
+        </div>
+      </div>
+    </section>
+
     <!-- Now-playing panel (Spotify) -->
     <section class="panel nowplaying-panel" id="nowplaying-panel" data-playing="false">
       <div class="panel-header">

@@ -166,7 +166,10 @@ class VisionRequested:
 class VisionResult:
     """Outcome of a VisionRequested. `summary` is the human-readable text the brain
     (or TTS) will speak. `image_path` is populated only when the service was asked
-    to persist the screenshot to disk."""
+    to persist the screenshot to disk. `mode` is the capture mode actually used
+    (foreground / full / region — may differ from the request if foreground fell
+    through to full). `context_name` is the per-app context the specialist used
+    (vscode, bambu_studio, freecad, …)."""
     request_id: str
     ok: bool
     summary: str
@@ -175,6 +178,8 @@ class VisionResult:
     backend: str
     image_path: str = ""
     timestamp_iso: str = ""
+    mode: str = ""
+    context_name: str = ""
 
 
 # Union of everything — handy for type hints in the bus.

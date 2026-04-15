@@ -86,12 +86,16 @@ async def main() -> int:
     assert result is not None and result.ok, f"bad VisionResult: {result}"
     assert result.width > 0 and result.height > 0, f"empty capture: {result}"
     assert result.backend == "null", result.backend
+    assert result.mode in ("foreground", "full"), result.mode
+    assert result.context_name, f"missing context_name: {result}"
     assert response is not None and response.text.strip(), response
     log.info(
         "test_1_pass",
         width=result.width,
         height=result.height,
         summary_chars=len(result.summary),
+        mode=result.mode,
+        context_name=result.context_name,
     )
 
     # --- Test 2: ActionRequested("screen_inspect", ...) → VisionResult + ActionCompleted.

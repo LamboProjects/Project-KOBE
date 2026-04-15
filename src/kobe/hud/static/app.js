@@ -22,6 +22,7 @@
   const PRINTER_FILENAME_MAX = 40;
   const CONFIRM_SAFETY_TIMEOUT_MS = 15000;
   const CONFIRM_RESULT_FADE_MS = 2200;
+  const VISION_SHIMMER_SAFETY_MS = 45000;
 
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
@@ -68,6 +69,14 @@
     confirmBanner:   $("confirm-banner"),
     confirmPrompt:   $("confirm-prompt"),
     confirmResult:   $("confirm-result"),
+    // Vision
+    visionPanel:       $("vision-panel"),
+    visionStatus:      $("vision-status"),
+    visionPlaceholder: $("vision-placeholder"),
+    visionContent:     $("vision-content"),
+    visionQuestion:    $("vision-question"),
+    visionSummary:     $("vision-summary"),
+    visionMeta:        $("vision-meta"),
   };
 
   // ---------- Clock (the only JS-driven poll) ----------
@@ -274,6 +283,93 @@
     el.npDuration.textContent = formatMs(durMs);
   }
 
+  // ---------- Vision (last screen-inspection result) ----------
+  const vision = {
+    lastQuestion: "",      // from most recent VisionRequested, cleared by next VisionResult
+    scanning: false,       // shimmer overlay on/off
+    lastResult: null,      // last VisionResult payload (or null)
+  };
+  let visionShimmerTimer = null;
+
+  function formatVisionTime(iso) {
+    if (!iso) return formatTime();
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return formatTime();
+    return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  function renderVision() {
+    el.visionPanel.setAttribute("data-scanning", vision.scanning ? "true" : "false");
+
+    const r = vision.lastResult;
+    if (!r) {
+      el.visionPanel.setAttribute("data-status", "empty");
+      el.visionStatus.textContent = "—";
+      el.visionContent.hidden = true;
+      el.visionPlaceholder.style.display = "";
+      // Question line is meaningless without a backing scan; suppress.
+      el.visionQuestion.hidden = true;
+      el.visionQuestion.textContent = "";
+      return;
+    }
+
+    el.visionPanel.setAttribute("data-status", r.ok ? "ok" : "error");
+    el.visionStatus.textContent = r.backend ? String(r.backend).toUpperCase() : (r.ok ? "OK" : "ERROR");
+
+    el.visionPlaceholder.style.display = "none";
+    el.visionContent.hidden = false;
+
+    el.visionSummary.textContent = r.summary ? String(r.summary) : "(no summary)";
+
+    const w = (typeof r.width === "number" && r.width > 0) ? r.width : null;
+    const h = (typeof r.height === "number" && r.height > 0) ? r.height : null;
+    const dims = (w && h) ? (w + "×" + h) : "—";
+    const tag  = r.context_name ? String(r.context_name).toUpperCase()
+                                : (r.backend ? String(r.backend).toUpperCase()
+                                : (r.mode ? String(r.mode).toUpperCase() : "—"));
+    el.visionMeta.textContent = dims + " · " + tag + " · " + formatVisionTime(r.timestamp_iso);
+
+    if (vision.lastQuestion) {
+      el.visionQuestion.hidden = false;
+      el.visionQuestion.textContent = "Q: " + vision.lastQuestion;
+    } else {
+      el.visionQuestion.hidden = true;
+      el.visionQuestion.textContent = "";
+    }
+  }
+
+  function onVisionRequested(data) {
+    if (!data || typeof data !== "object") return;
+    vision.lastQuestion = typeof data.question === "string" ? data.question : "";
+    vision.scanning = true;
+    // Shimmer safety: if no matching VisionResult lands, auto-clear after a grace window.
+    if (visionShimmerTimer) { clearTimeout(visionShimmerTimer); visionShimmerTimer = null; }
+    visionShimmerTimer = setTimeout(function () {
+      visionShimmerTimer = null;
+      vision.scanning = false;
+      renderVision();
+    }, VISION_SHIMMER_SAFETY_MS);
+    // If we already have a prior result, the question overlays it; otherwise placeholder + shimmer.
+    renderVision();
+  }
+
+  function onVisionResult(data) {
+    if (!data || typeof data !== "object") return;
+    vision.scanning = false;
+    if (visionShimmerTimer) { clearTimeout(visionShimmerTimer); visionShimmerTimer = null; }
+    vision.lastResult = {
+      ok:            !!data.ok,
+      summary:       typeof data.summary === "string" ? data.summary : "",
+      width:         typeof data.width === "number" ? data.width : 0,
+      height:        typeof data.height === "number" ? data.height : 0,
+      backend:       typeof data.backend === "string" ? data.backend : "",
+      mode:          typeof data.mode === "string" ? data.mode : "",
+      context_name:  typeof data.context_name === "string" ? data.context_name : "",
+      timestamp_iso: typeof data.timestamp_iso === "string" ? data.timestamp_iso : "",
+    };
+    renderVision();
+  }
+
   // ---------- Confirmation banner ----------
   let confirmActiveId = null;
   let confirmSafetyTimer = null;
@@ -344,6 +440,7 @@
         if (data.system) setSystem(data.system);
         if (data.printer) setPrinter(data.printer);
         if (data.now_playing) setNowPlaying(data.now_playing);
+        if (data.vision) onVisionResult(data.vision);
         break;
       }
 
@@ -377,6 +474,14 @@
 
       case "ConfirmationResult":
         showConfirmResult(data);
+        break;
+
+      case "VisionRequested":
+        onVisionRequested(data);
+        break;
+
+      case "VisionResult":
+        onVisionResult(data);
         break;
 
       case "MuteToggled":
@@ -470,5 +575,6 @@
 
   // ---------- Boot ----------
   renderTranscript();
+  renderVision();
   connect();
 })();
