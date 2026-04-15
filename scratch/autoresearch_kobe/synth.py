@@ -823,6 +823,31 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression (Codex review round 6 P1): cross-semantic misclassification
+    # during a long hold. User holds Thumb_Up (confirm) for 60 frames;
+    # MediaPipe briefly emits `Closed_Fist` (dismiss) for one frame every
+    # 10 frames. Only ONE confirm may fire — the cross-mapped flicker
+    # must not be treated as a release. Without the unified release-streak
+    # gate, the cross-mapped frame would clear the KOBE-lock instantly
+    # (different mapping -> clear), and once cooldown elapsed a second
+    # confirm would fire around frame 44 (duplicate). The unified streak
+    # counter treats a single cross-mapped frame the same way it treats a
+    # single unmapped frame: noise, not release.
+    cross_flicker = []
+    for i in range(60):
+        if i % 10 == 9:
+            cross_flicker.append(frame(i, "Closed_Fist", 0.9))
+        else:
+            cross_flicker.append(frame(i, "Thumb_Up", 0.9))
+    cases.append(
+        StreamCase(
+            name="hard_cross_mapping_flicker",
+            frames=cross_flicker,
+            expected_events=[("confirm", 0, 10)],
+            forbidden_events=["dismiss", "point", "swipe_left", "swipe_right"],
+        )
+    )
+
     # Regression (Codex review round 4 P1): same-semantic raw-label flicker
     # during a long continuous hold must not re-fire. User holds confirm
     # for 60 frames; MediaPipe alternates Thumb_Up / Open_Palm every frame

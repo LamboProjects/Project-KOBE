@@ -15,31 +15,46 @@ Matching rules:
 Score formula:
   score = f1 - 0.005 * mean_latency_frames
 so F1 strictly dominates but latency breaks ties.
+
+NOTE: This module is a **script/test helper**, not a production import. It
+is intended to be invoked via `run_experiment.py`, `iterate.py`, or direct
+`python scratch/autoresearch_kobe/harness.py`. Those entry points preload
+`KOBE_ENV_FILE` to the shipped `empty.env` before importing `kobe.config`
+so the benchmark runs against pristine defaults. Importing this module
+from production code would bypass that setup and may read the developer's
+local `config/.env`.
 """
 from __future__ import annotations
 
-# CRITICAL: preload `KOBE_ENV_FILE` to the shipped empty env BEFORE importing
-# `kobe.config`. Mirrors the logic in `run_experiment.py` / `iterate.py`, but
-# is REQUIRED here too because `harness.py` may be run directly (or imported
-# by `preview_server`-style tools) without the wrapper scripts. Without this,
-# `Settings()` at `evaluate()` time resolves `env_file` at class definition
-# which was triggered by this module's import — so `_resolve_env_file()`
-# silently picks up the developer's local `config/.env` and the benchmark
-# output becomes machine-specific.
-import os as _os_preload
+# Scoped env override: temporarily point `KOBE_ENV_FILE` at the shipped
+# empty file, import `kobe.config` (which freezes `env_file` at class
+# definition via `_resolve_env_file()`), then RESTORE the original env
+# state. This way the Settings class is locked to pristine defaults, but
+# `os.environ` is unchanged for any subsequent caller code — so importing
+# this module doesn't silently redirect unrelated `Settings()` lookups in
+# the same process.
+import os as _os
 from pathlib import Path as _Path
 
 _EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
-_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
+_ORIG_ENV = _os.environ.get("KOBE_ENV_FILE")
+_os.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
 
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
 
-from kobe.config import Settings
-from kobe.gestures.classifier import GestureClassifier
+from kobe.config import Settings  # noqa: E402 — must follow env override
+from kobe.gestures.classifier import GestureClassifier  # noqa: E402
 
-from synth import StreamCase, make_cases, split_cases
+# Restore the caller's original env state so the mutation is scoped to
+# `kobe.config`'s class definition.
+if _ORIG_ENV is None:
+    _os.environ.pop("KOBE_ENV_FILE", None)
+else:
+    _os.environ["KOBE_ENV_FILE"] = _ORIG_ENV
+
+from synth import StreamCase, make_cases, split_cases  # noqa: E402
 
 
 @dataclass
