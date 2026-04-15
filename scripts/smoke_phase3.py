@@ -133,6 +133,90 @@ async def main() -> int:
     assert action is not None and action.params == {"reason": "user requested"}, action
     log.info("test_2b_pass_yes_confirmed_and_action_republished")
 
+    # --- Test 3: brain must NOT also forward the confirmation answer to OpenClaw.
+    # In stub mode the brain echoes "You said: ..." for any TranscriptReady; if it
+    # processed the "yes" too we'd see a stub ResponseReady. The cross-phase audit
+    # caught this race; the fix is the brain's confirmation-pending guard.
+    from kobe.brain.router import run_brain_service
+    settings.openclaw_api_url = ""
+    settings.openclaw_api_key = ""  # force stub mode
+    brain = asyncio.create_task(run_brain_service(bus, settings))
+    await asyncio.sleep(0.15)  # let brain subscribe
+
+    stub_replies: list[ResponseReady] = []
+    rq = bus.subscribe(ResponseReady)
+    async def _grab():
+        while True:
+            ev = await rq.get()
+            if ev.text.startswith("You said:"):
+                stub_replies.append(ev)
+    grab_task = asyncio.create_task(_grab())
+
+    try:
+        await bus.publish(
+            ConfirmationRequested(
+                request_id="t3",
+                action="bambu_cancel_print",
+                params={},
+                prompt="Cancel the print. Confirm?",
+            )
+        )
+        await asyncio.sleep(0.05)  # brain sees ConfirmationRequested
+        await bus.publish(
+            TranscriptReady(request_id="user2", text="yes", duration_s=0.4)
+        )
+        await asyncio.sleep(0.5)
+        assert not stub_replies, (
+            "brain processed the confirmation answer (race regression): "
+            f"{[(r.request_id, r.text) for r in stub_replies]}"
+        )
+        log.info("test_3_pass_brain_skips_confirmation_answer")
+
+        # --- Test 4: back-to-back confirmations — the second answer must
+        # also be reserved for the confirmation manager, not leaked to the
+        # brain. Codex caught this regression.
+        stub_replies.clear()
+        await bus.publish(
+            ConfirmationRequested(
+                request_id="t4a",
+                action="bambu_pause_print",
+                params={},
+                prompt="Pause the print. Confirm?",
+            )
+        )
+        await bus.publish(
+            ConfirmationRequested(
+                request_id="t4b",
+                action="bambu_cancel_print",
+                params={},
+                prompt="Cancel the print. Confirm?",
+            )
+        )
+        await asyncio.sleep(0.05)
+        # First answer
+        await bus.publish(
+            TranscriptReady(request_id="user3", text="yes", duration_s=0.4)
+        )
+        await asyncio.sleep(0.1)
+        # Second answer
+        await bus.publish(
+            TranscriptReady(request_id="user4", text="yes", duration_s=0.4)
+        )
+        await asyncio.sleep(0.5)
+        assert not stub_replies, (
+            "brain processed at least one back-to-back confirmation answer: "
+            f"{[(r.request_id, r.text) for r in stub_replies]}"
+        )
+        log.info("test_4_pass_back_to_back_confirmations_clean")
+    finally:
+        grab_task.cancel()
+        bus.unsubscribe(ResponseReady, rq)
+        brain.cancel()
+        try:
+            await brain
+        except (asyncio.CancelledError, Exception):
+            pass
+
     executor_task.cancel()
     confirm_task.cancel()
     for t in (executor_task, confirm_task):

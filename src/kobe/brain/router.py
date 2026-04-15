@@ -49,6 +49,7 @@ from kobe.config import Settings
 from kobe.events import (
     ActionRequested,
     ConfirmationRequested,
+    ConfirmationResult,
     ResponseReady,
     TranscriptReady,
 )
@@ -129,7 +130,19 @@ async def _handle_transcript(
     bus: Bus,
     settings: Settings,
     client: httpx.AsyncClient | None,
+    confirm_state: dict[str, int],
+    transcript_queue: asyncio.Queue | None = None,
 ) -> None:
+    """Process one transcript. May increment `confirm_state["pending"]` if the
+    response triggers a `ConfirmationRequested` — the run loop reads that
+    counter to suppress the *next* transcript (which will be the yes/no
+    answer) without racing on bus event ordering.
+
+    If `transcript_queue` is provided, any transcripts already queued at the
+    moment we publish `ConfirmationRequested` are drained and processed first
+    — they're the user's earlier utterances, not the confirmation answer.
+    This closes Codex's queued-transcript ordering hazard.
+    """
     text = (event.text or "").strip()
     if not text:
         log.info("empty_transcript_skipped", request_id=event.request_id)
@@ -168,6 +181,41 @@ async def _handle_transcript(
                     action=name,
                     prompt=prompt,
                 )
+                # Drain any transcripts that were enqueued WHILE we were
+                # processing this one — they're pre-confirmation user input,
+                # not the yes/no answer, so they get normal brain processing
+                # before we close the door with `pending += 1`. Recursive,
+                # but bounded by the bus queue size; each recursive call
+                # only fires for the strict subset of pre-existing queue
+                # contents at this point in time.
+                if transcript_queue is not None:
+                    while True:
+                        try:
+                            pre = transcript_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                        log.info(
+                            "draining_pre_confirmation_transcript",
+                            request_id=pre.request_id,
+                        )
+                        try:
+                            await _handle_transcript(
+                                pre, bus, settings, client, confirm_state, transcript_queue
+                            )
+                        except Exception as e:  # noqa: BLE001
+                            log.exception(
+                                "brain_pre_drain_handler_crashed",
+                                request_id=pre.request_id,
+                                error=str(e),
+                            )
+                            await _publish_fallback(bus, pre.request_id)
+
+                # Increment BEFORE publish so the next TranscriptReady we pop
+                # is correctly attributed to the manager. Also tag the
+                # request_id so the bus-level ConfirmationRequested subscriber
+                # in the run loop knows not to double-count this one.
+                confirm_state["pending"] += 1
+                confirm_state.setdefault("own_ids", set()).add(event.request_id)
                 await bus.publish(
                     ConfirmationRequested(
                         request_id=event.request_id,
@@ -186,7 +234,28 @@ async def _handle_transcript(
 
 
 async def run_brain_service(bus: Bus, settings: Settings) -> None:
-    """Long-running coroutine: route TranscriptReady events through OpenClaw."""
+    """Long-running coroutine: route TranscriptReady events through OpenClaw.
+
+    Confirmation guard
+    ------------------
+    The brain is the sole *production* publisher of `ConfirmationRequested`
+    (it triggers one when OpenClaw returns a destructive action). For its
+    own publishes, `_handle_transcript` synchronously bumps
+    `confirm_state["pending"]` and tags the request_id in `own_ids` — so the
+    bus-side subscription doesn't double-count when the same event comes
+    back around. It also drains any transcripts that landed in our queue
+    while we were calling OpenClaw and processes them as normal utterances
+    *before* publishing the confirmation, so a transcript that arrived
+    pre-confirmation never gets misattributed as the yes/no answer.
+
+    External publishers (tests, future non-brain producers) are tolerated
+    via the `confirm_req_q` subscription, but the bus has no global ordering
+    between `TranscriptReady`, `ConfirmationRequested`, and
+    `ConfirmationResult`, so a few theoretical interleavings (a result
+    queued before a fresh request, or a request landing while the brain is
+    awaiting OpenClaw) can still misattribute one transcript. Production
+    flow uses only the brain as a publisher and is unaffected.
+    """
     stub = _is_stub_mode(settings)
     client: httpx.AsyncClient | None = None
     if stub:
@@ -201,11 +270,53 @@ async def run_brain_service(bus: Bus, settings: Settings) -> None:
         )
 
     queue = bus.subscribe(TranscriptReady)
+    confirm_req_q = bus.subscribe(ConfirmationRequested)
+    confirm_res_q = bus.subscribe(ConfirmationResult)
+
+    # Mutable so `_handle_transcript` can bump the counter on publish.
+    # `own_ids` are request_ids the brain itself just sync-incremented for —
+    # we strip them from the bus-side stream below so we don't double-count.
+    confirm_state: dict[str, object] = {"pending": 0, "own_ids": set()}
+
+    def _drain_confirmation_events() -> None:
+        own_ids: set = confirm_state["own_ids"]  # type: ignore[assignment]
+        while True:
+            try:
+                ev = confirm_req_q.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            if ev.request_id in own_ids:
+                own_ids.discard(ev.request_id)
+                continue
+            # External publisher (e.g. tests, future producers) — count it.
+            confirm_state["pending"] = int(confirm_state["pending"]) + 1  # type: ignore[arg-type]
+        while True:
+            try:
+                confirm_res_q.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            confirm_state["pending"] = max(0, int(confirm_state["pending"]) - 1)  # type: ignore[arg-type]
+
     try:
         while True:
             event = await queue.get()
+            _drain_confirmation_events()
+            pending = int(confirm_state["pending"])  # type: ignore[arg-type]
+            if pending > 0:
+                # Confirmation manager owns this transcript. Decrement only
+                # on `ConfirmationResult` (above) — eager decrement here
+                # would let the second of two back-to-back confirmations
+                # leak its answer back to the brain, since we'd hit zero
+                # one event too early.
+                log.info(
+                    "transcript_yielded_to_confirmation",
+                    request_id=event.request_id,
+                    text=event.text[:80],
+                    pending=pending,
+                )
+                continue
             try:
-                await _handle_transcript(event, bus, settings, client)
+                await _handle_transcript(event, bus, settings, client, confirm_state, queue)
             except Exception as e:  # never raise into the bus
                 log.exception("brain_handler_crashed", request_id=event.request_id, error=str(e))
                 await _publish_fallback(bus, event.request_id)
@@ -214,6 +325,8 @@ async def run_brain_service(bus: Bus, settings: Settings) -> None:
         raise
     finally:
         bus.unsubscribe(TranscriptReady, queue)
+        bus.unsubscribe(ConfirmationRequested, confirm_req_q)
+        bus.unsubscribe(ConfirmationResult, confirm_res_q)
         if client is not None:
             await client.aclose()
             log.info("brain_service_stopped")

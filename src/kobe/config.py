@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
