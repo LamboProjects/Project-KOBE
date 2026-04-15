@@ -80,7 +80,21 @@ def _load_model(model_list: list[str]) -> tuple[Any, list[str]]:
 
 
 async def run_wake_service(bus: Bus, settings: Settings, audio: AudioSource) -> None:
-    model, loaded_names = await asyncio.to_thread(_load_model, settings.wake_model_list)
+    # Degrade cleanly if OpenWakeWord can't load either backend — otherwise the
+    # `RuntimeError` from `_load_model` escapes `run_wake_service`, the
+    # `asyncio.TaskGroup` bundles it into an ExceptionGroup, and **every**
+    # other service gets cancelled. Failing soft here means the rest of KOBE
+    # (HUD / brain / TTS / integrations / vision / gestures / fan) keeps running.
+    try:
+        model, loaded_names = await asyncio.to_thread(_load_model, settings.wake_model_list)
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "wake_service_unavailable",
+            error=str(exc),
+            hint="install openwakeword, provide a valid wake_models list, "
+                 "or set WAKE_ENABLED (future flag) — pipeline continues without wake",
+        )
+        return
 
     audio_q = audio.subscribe()
     mute_q = bus.subscribe(MuteToggled)

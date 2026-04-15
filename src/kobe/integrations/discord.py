@@ -198,8 +198,21 @@ async def _status_cache_task(bus: Bus) -> None:
 
 
 async def _digest_task(client: httpx.AsyncClient, url: str, interval_hours: float) -> None:
-    """Every `interval_hours`, post a neutral digest of the latest PrinterStatus."""
-    interval_s = max(60.0, interval_hours * 3600.0)
+    """Every `interval_hours`, post a neutral digest of the latest PrinterStatus.
+
+    Floors at 60 s to avoid rate-limit spam. If the user set a fractional
+    sub-minute value (e.g. `0.01` → 36 s), we log at startup that we're
+    rounding up so the behaviour isn't surprising.
+    """
+    raw_s = float(interval_hours) * 3600.0
+    interval_s = max(60.0, raw_s)
+    if interval_s > raw_s:
+        log.info(
+            "discord_digest_interval_floored",
+            requested_s=round(raw_s, 1),
+            effective_s=interval_s,
+            hint="digest interval floors at 60 s",
+        )
     try:
         while True:
             await asyncio.sleep(interval_s)

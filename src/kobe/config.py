@@ -78,7 +78,11 @@ class Settings(BaseSettings):
     audio_sample_rate: int = 16000
 
     # VAD / recording limits
-    vad_aggressiveness: int = 2  # 0..3, webrtcvad
+    # Energy-based VAD level (0=off, 3=aggressive). Originally designed for
+    # webrtcvad — we swapped to a simpler RMS-energy check because webrtcvad
+    # needs MSVC build tools on Windows with modern Pythons. The 0..3 scale
+    # is preserved as a reinterpreted RMS threshold (see stt/service.py).
+    vad_aggressiveness: int = 2
     max_record_seconds: float = 15.0
     silence_end_ms: int = 800
 

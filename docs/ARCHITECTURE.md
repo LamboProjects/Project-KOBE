@@ -109,6 +109,9 @@ hud_backend updates display
 | `home_assistant` | `src/kobe/integrations/home_assistant.py` | REST integration. Actions `home_light_on/off/toggle`, `home_switch_on/off`, `home_scene_activate`, `home_state`, generic `home_*` pass-through. Unconfigured stub replies with clear failure instead of silent hang. | 6 | ✅ |
 | `muteme` | `src/kobe/mute/muteme.py` | MuteMe Mini USB button via cython-hidapi. Enumerates 4 VID/PID pairs, picks input-capable interface, blocking-read producer thread, LED mirrors mute state. Idempotent bus-mirror, best-effort LED writes. | 6 | ✅ |
 | `personas` | `src/kobe/brain/personas.py` | 5 named presets + custom-prompt passthrough. `persona_prompt` field added to OpenClaw POST body (optional). | 6 | ✅ |
+| `fan_service` | `src/kobe/fan/service.py` | Priority stack (gesture > printer > spotify > idle logo/STL); renders off the loop; respects per-clip cooldown; emits `FanClipPushed` (path=""); probes `imageio` at startup for graceful degradation. | 7 | ✅ |
+| `fan_driver` | `src/kobe/fan/driver.py` | `FanBackend` Protocol + `NullBackend` / `FileOutputBackend` (atomic `current.mp4` swap) / `HttpPushBackend` scaffold with full protocol docstring for future pcap work. | 7 | ✅ |
+| `fan_content` | `src/kobe/fan/content.py` | Logo / progress ring / Spotify waveform / gesture flash / STL rotation. 512×512 @ 30 fps, H.264 yuv420p, pure black. SHA-1 hash dedup. | 7 | ✅ |
 
 ## Event catalogue (Phases 1–5)
 
@@ -134,6 +137,8 @@ hud_backend updates display
 | `GestureDetected` | gesture_service | hud (cache + relay) |
 | `WebcamStatus` | gesture_service | hud (cache + relay) |
 | `ProfileChanged` | profile_manager (startup + switch) | hud (cache + relay) |
+| `FanClipPushed` | fan_service (after successful backend push) | hud (cache + relay; path scrubbed) |
+| `FanBackendStatus` | fan_service (startup, 10 s telemetry, shutdown) | hud (cache + relay) |
 
 ---
 

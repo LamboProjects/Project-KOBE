@@ -81,8 +81,15 @@ async def run_mute_service(bus: Bus, settings: Settings) -> None:
         log.info("mute_service_stop")
         raise
     finally:
-        if hotkey_handle is not None:
-            try:
+        # Some `keyboard` versions return `None` from `add_hotkey` even on
+        # success, so the hotkey gets registered but our handle is None and
+        # a handle-based remove would leak the OS-level low-level hook
+        # across dev restarts. Fall back to removing by hotkey string when
+        # the handle is missing.
+        try:
+            if hotkey_handle is not None:
                 await asyncio.to_thread(keyboard.remove_hotkey, hotkey_handle)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("mute_hotkey_cleanup_failed", error=str(exc))
+            else:
+                await asyncio.to_thread(keyboard.remove_hotkey, settings.mute_hotkey)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("mute_hotkey_cleanup_failed", error=str(exc))

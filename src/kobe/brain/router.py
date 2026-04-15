@@ -336,4 +336,6 @@ async def run_brain_service(bus: Bus, settings: Settings) -> None:
         bus.unsubscribe(ConfirmationResult, confirm_res_q)
         if client is not None:
             await client.aclose()
-            log.info("brain_service_stopped")
+        # Log unconditionally — stub mode also deserves a stop marker to
+        # keep shutdown logs symmetric across services.
+        log.info("brain_service_stopped", stub=client is None)

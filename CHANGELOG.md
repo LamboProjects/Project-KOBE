@@ -6,6 +6,37 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## Phase 7 — 🌀 Holographic Fan Integration · *pending commit*
+
+Pluggable content pipeline for 65 cm WiFi holographic fans. Because no vendor in this class publishes an API, KOBE ships the content-generation + backend-abstraction half; the user drops in their own device driver after pcaping the vendor app.
+
+### Added
+- `src/kobe/fan/driver.py` — `FanBackend` Protocol + `BackendHealth` + three concrete backends: `NullBackend` (log stub), `FileOutputBackend` (atomic `os.replace` swap of `current.mp4` with rolling retention), `HttpPushBackend` (scaffold with full protocol docstring — POST `/upload` + POST `/play` + Bearer auth + TODO(pcap) markers).
+- `src/kobe/fan/content.py` — `render_rotating_logo`, `render_progress_ring`, `render_spotify_waveform`, `render_gesture_flash`, `render_stl_rotation`. 512×512, 30 fps, H.264 yuv420p on pure black. SHA-1 hash dedup on inputs so identical scenes don't re-render.
+- `src/kobe/fan/service.py` — priority stack: gesture flash > printer progress > Spotify waveform > idle logo/STL. Three fan-in subscribers with drop-oldest work queue. Renders off the loop via `functools.partial` + `asyncio.to_thread`. Honors `hologram_clip_cooldown_s` (gesture flashes preempt). Only advances `last_pushed_hash` + emits `FanClipPushed` on backend success. Probes `imageio` at startup and disables cleanly when the `hologram` extra isn't installed. Seeds the idle queue at startup so the fan isn't blank for the first logo-refresh interval.
+- HUD compact FAN pill in the brand panel with backend tag, connection dot, current clip name, and a 500 ms flash on every new push.
+- `FanClipPushed`, `FanBackendStatus` events. HUD backend `_EVENT_TYPES` + snapshot cache extended; `path` scrubbed from both cache and broadcast.
+- 11 new `hologram_*` Settings fields with research-recommended defaults. New optional extra `hologram` = `imageio>=2.34` + `imageio-ffmpeg>=0.5` + `trimesh>=4.4` + `pyglet>=2.0` (Windows).
+- `scripts/smoke_phase7.py` — factory dispatch, content hash internals, and end-to-end service run with `NullBackend` asserting a `GestureDetected` produces a `FanClipPushed(path="")`.
+
+### Fixed (during the Codex review loop)
+- Service called content generators positionally but they're keyword-only — would have TypeError'd every render. Wrapped in `functools.partial`.
+- `BackendHealth.name` vs service `getattr("backend", ...)` contract drift — service now reads `.name`.
+- Service advanced `last_pushed_hash` + published `FanClipPushed` even on backend failure — now success-gated.
+- `content.render_stl_rotation` caught `BaseException`, swallowing `CancelledError` — narrowed to `Exception`.
+- `hologram_enabled` defaulted on, but a base install without the extra would spam render failures — now probes `imageio` up-front and disables cleanly.
+- Idle timer waited a full `hologram_logo_refresh_s` (60 s default) before the first push — now seeds an immediate idle tick so the fan shows content within a second.
+- HUD unknown-backend name could inflate the pill — now capped at 6 chars.
+
+### Cross-phase integration audit fixes (committed alongside Phase 7)
+- **Wake service crash propagation** — `_load_model` raising `RuntimeError` (e.g. missing openwakeword wheel) would bubble into the `asyncio.TaskGroup` and cancel every other service. Wake now degrades cleanly and logs a hint; the rest of the pipeline keeps running.
+- **`mute/service.py` hotkey cleanup** — some `keyboard` versions return `None` from `add_hotkey` even on success, which would leak the low-level OS hook across dev restarts. Fall back to string-based `remove_hotkey(mute_hotkey)` when the handle is missing.
+- **`brain/router.py` shutdown log asymmetry** — stub mode now also logs `brain_service_stopped` for symmetric service lifecycle traces.
+- **Discord digest sub-minute clamp** — if the user set a fractional `discord_digest_interval_hours` (< 0.0167 → under 60 s), the clamp to 60 s was silent. Logs `discord_digest_interval_floored` on startup.
+- **`vad_aggressiveness` config docstring** — old "webrtcvad" reference corrected to explain we use an RMS-energy VAD (webrtcvad pulled out in Phase 1 to avoid MSVC dep on Windows).
+
+---
+
 ## Phase 6 — ✨ Premium Polish · [`7c4f9be`](../../commit/7c4f9be)
 
 Personas, smart-home integration, physical MuteMe button, multi-profile scaffold, richer Discord alerts, smoother HUD.
