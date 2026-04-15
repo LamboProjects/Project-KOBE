@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Planning-blue?style=for-the-badge&logo=github" />
+  <img src="https://img.shields.io/badge/Status-Phase%202%20Complete-00D4FF?style=for-the-badge&logo=github" />
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows" />
-  <img src="https://img.shields.io/badge/GPU-RTX%203060-76B900?style=for-the-badge&logo=nvidia" />
+  <img src="https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia" />
   <img src="https://img.shields.io/badge/AI-Claude%20Sonnet-8A2BE2?style=for-the-badge&logo=anthropic" />
   <img src="https://img.shields.io/badge/TTS-ElevenLabs-FF6B35?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-Private-red?style=for-the-badge" />
@@ -36,24 +36,24 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 
 | Layer | Technology | Status |
 |-------|-----------|--------|
-| 🎤 **Wake Word** | OpenWakeWord — "Hey KOBE" / "OK KOBE" | 🔲 Planned |
-| 🗣️ **Speech-to-Text** | faster-whisper, local GPU (RTX 3060) | 🔲 Planned |
-| 🧠 **Intelligence** | OpenClaw + Claude Sonnet | 🔲 Planned |
-| 🔊 **Text-to-Speech** | ElevenLabs (primary) / OpenAI TTS (backup) | 🔲 Planned |
-| 🖥️ **HUD** | Always-on second monitor display | 🔲 Planned |
-| 🖨️ **Printer** | Bambu Lab P1S deep integration | 🔲 Planned |
-| 🎵 **Media** | Spotify + Steam control | 🔲 Planned |
-| 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned |
-| 👁️ **Screen Vision** | On-demand screen understanding | 🔲 Planned |
-| ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned |
+| 🎤 **Wake Word** | OpenWakeWord — `hey_jarvis` stand-in until custom "Hey KOBE" trained | ✅ Built |
+| 🗣️ **Speech-to-Text** | faster-whisper `base.en` on CUDA, int8_float16 | ✅ Built |
+| 🧠 **Intelligence** | OpenClaw HTTP (echo stub when unconfigured) | ✅ Built |
+| 🔊 **Text-to-Speech** | ElevenLabs primary, OpenAI TTS fallback, barge-in | ✅ Built |
+| 🖥️ **HUD** | FastAPI + WebSocket + vanilla-JS dashboard @ `127.0.0.1:8765` | ✅ Built |
+| 🖨️ **Printer** | Bambu Lab P1S deep integration | 🔲 Planned (Phase 3) |
+| 🎵 **Media** | Spotify + Steam control | 🔲 Planned (Phase 3) |
+| 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned (Phase 5) |
+| 👁️ **Screen Vision** | On-demand screen understanding | 🔲 Planned (Phase 4) |
+| ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned (Phase 7) |
 
 ---
 
 ## 🗺️ Roadmap at a Glance
 
 ```
-Phase 1 ──── Core Voice MVP          🔲
-Phase 2 ──── HUD Display             🔲
+Phase 1 ──── Core Voice MVP          ✅
+Phase 2 ──── HUD Display             ✅
 Phase 3 ──── Printer & Productivity  🔲
 Phase 4 ──── Screen Vision           🔲
 Phase 5 ──── Gesture Control         🔲
@@ -183,26 +183,31 @@ Project-KOBE/
 
 ## ⚠️ Project Status
 
-> **Phase 1 scaffolding landed.** Voice pipeline (wake → STT → brain → TTS → actions + mute) wired against a shared asyncio event bus. Requires config/.env with API keys before end-to-end use.
+> **Phase 1 + Phase 2 landed.** Voice pipeline (wake → STT → brain → TTS → actions + mute) plus a live HUD (FastAPI backend, WebSocket-driven JARVIS-style frontend, system telemetry) are all wired against a shared asyncio event bus. Requires `config/.env` with API keys before end-to-end use.
 
-### Running Phase 1
+### Running
 
 ```bash
 # 1. Install uv if you don't have it (PowerShell)
 irm https://astral.sh/uv/install.ps1 | iex
 
-# 2. Sync deps
+# 2. Sync deps (uses Python 3.11 via .python-version)
 uv sync
 
 # 3. Copy the env template and fill in keys
 cp config/.env.example config/.env
 # edit config/.env → ELEVENLABS_API_KEY, OPENCLAW_API_KEY, OPENCLAW_API_URL, ...
 
-# 4. Smoke test (no API keys / mic / speakers required)
-uv run python scripts/smoke_phase1.py
+# 4. Smoke tests (no API keys / mic / speakers required)
+uv run python scripts/smoke_phase1.py   # brain → tts → actions path
+uv run python scripts/smoke_phase2.py   # HUD routes + WS protocol
 
-# 5. Run the live pipeline
+# 5. Run the live pipeline (start your terminal as Administrator
+#    if you want the ctrl+alt+k global mute hotkey to work)
 uv run kobe run
+
+# 6. Open the HUD on your second monitor in kiosk mode
+start chrome --kiosk http://127.0.0.1:8765
 ```
 
 > **GPU note**: `faster-whisper` defaults to CUDA with `int8_float16`. On a 4 GB GPU, stay on `base.en` (default). Set `WHISPER_DEVICE=cpu` and `WHISPER_COMPUTE_TYPE=int8` to disable CUDA.

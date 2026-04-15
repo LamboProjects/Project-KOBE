@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-> **Status:** Stub — full architecture to be generated via Claude Code using the prompt in [docs/Project KOBE - Detailed Spec.md](./Project%20KOBE%20-%20Detailed%20Spec.md) (Section 26).
+> **Status:** Phase 1 + 2 implemented; later phases will extend this map. Every service below is a long-running `async def run_*_service(bus, settings, …)` coroutine wired into a single `asyncio.TaskGroup` in `src/kobe/__main__.py`.
 
 ---
 
@@ -76,23 +76,44 @@ hud_backend updates display
 
 ## Modules
 
-| Module | Purpose | Phase |
-|--------|---------|-------|
-| `wake_service` | Always-on wake word detection | 1 |
-| `stt_service` | Speech-to-text (faster-whisper) | 1 |
-| `tts_service` | Text-to-speech (ElevenLabs) | 1 |
-| `conversation_router` | Routes input to Claude, returns response | 1 |
-| `action_executor` | Dispatches actions to integrations | 1 |
-| `hud_backend` | Event bus → HUD data layer | 2 |
-| `hud_frontend` | Always-on second monitor UI | 2 |
-| `printer_integration` | Bambu P1S status + control | 3 |
-| `spotify_integration` | Playback control | 3 |
-| `steam_integration` | Game launching | 3 |
-| `discord_alerts` | Printer/event notifications | 3 |
-| `confirmation_manager` | Destructive action confirmation | 3 |
-| `screen_vision_service` | On-demand screen analysis | 4 |
-| `gesture_service` | Webcam hand tracking | 5 |
-| `settings/profile_manager` | User profiles (Lambert, future Jasmine) | 6 |
+| Module | Path | Purpose | Phase | Status |
+|--------|------|---------|-------|--------|
+| `bus` | `src/kobe/bus.py` | Asyncio pub/sub with drop-oldest overflow | 1 | ✅ |
+| `events` | `src/kobe/events.py` | Immutable dataclass event types | 1 | ✅ |
+| `config` | `src/kobe/config.py` | pydantic-settings, layered env-file resolution | 1 | ✅ |
+| `audio` | `src/kobe/audio.py` | Single-owner mic source; thread-safe fan-out + 5 s pre-roll | 1 | ✅ |
+| `wake_service` | `src/kobe/wake/service.py` | OpenWakeWord detection; suppresses during mute / speak / record | 1 | ✅ |
+| `stt_service` | `src/kobe/stt/service.py` | faster-whisper + RMS-energy VAD | 1 | ✅ |
+| `tts_service` | `src/kobe/tts/service.py` | ElevenLabs → OpenAI; barge-in gated on speaking state | 1 | ✅ |
+| `brain/router` | `src/kobe/brain/router.py` | HTTP POST to OpenClaw; echo stub when unconfigured | 1 | ✅ |
+| `action_executor` | `src/kobe/actions/executor.py` | open_app / open_url / noop (extensible) | 1 | ✅ |
+| `mute_service` | `src/kobe/mute/service.py` | Global keyboard hotkey → MuteToggled + InterruptRequested | 1 | ✅ |
+| `hud_backend` | `src/kobe/hud/backend.py` | FastAPI + WebSocket; single outbound writer, per-client lock | 2 | ✅ |
+| `hud_frontend` | `src/kobe/hud/static/` | Plain HTML/CSS/JS dashboard, CSS-animated state orb | 2 | ✅ |
+| `system_status` | `src/kobe/system/status.py` | psutil + pygetwindow telemetry | 2 | ✅ |
+| `printer_integration` | `src/kobe/integrations/bambu.py` | Bambu P1S status + control | 3 | 🔲 |
+| `spotify_integration` | `src/kobe/integrations/spotify.py` | Playback control | 3 | 🔲 |
+| `steam_integration` | `src/kobe/integrations/steam.py` | Game launching | 3 | 🔲 |
+| `discord_alerts` | `src/kobe/integrations/discord.py` | Printer/event notifications | 3 | 🔲 |
+| `confirmation_manager` | `src/kobe/actions/confirmation.py` | Destructive action confirmation flow | 3 | 🔲 |
+| `screen_vision_service` | `src/kobe/vision/` | On-demand screen analysis | 4 | 🔲 |
+| `gesture_service` | `src/kobe/gestures/` | Webcam hand tracking | 5 | 🔲 |
+| `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
+
+## Event catalogue (Phase 1 + 2)
+
+| Event | Published by | Consumed by |
+|-------|--------------|-------------|
+| `WakeDetected` | wake | stt, tts (barge-in), hud |
+| `RecordingStarted` / `RecordingStopped` | stt | wake (suppression), hud |
+| `TranscriptReady` | stt | brain, hud |
+| `ResponseReady` | brain | tts, hud |
+| `ActionRequested` | brain | actions, hud |
+| `ActionCompleted` | actions | hud |
+| `SpeakStarted` / `SpeakFinished` | tts | wake (suppression), hud |
+| `InterruptRequested` | mute | tts |
+| `MuteToggled` | mute | wake, hud |
+| `SystemStatus` | system | hud |
 
 ---
 

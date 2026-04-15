@@ -4,35 +4,39 @@
 
 ---
 
-## Phase 1 — 🎤 Core Voice MVP
+## Phase 1 — 🎤 Core Voice MVP  ✅
 
 **Goal:** KOBE can hear, think, and speak reliably on the PC.
 
 > *Success: KOBE responds quickly and consistently. Saying "Hey KOBE, open Spotify" actually works.*
 
-- [ ] Wake word detection (`Hey KOBE` / `OK KOBE`)
-- [ ] Local STT with faster-whisper (GPU-accelerated on RTX 3060)
-- [ ] High-quality TTS output (ElevenLabs)
-- [ ] Barge-in / interruption support
-- [ ] Software mute toggle
-- [ ] Physical mute button scaffold
-- [ ] Basic voice command routing
-- [ ] App launching by voice (`open VS Code`, `open Spotify`)
+- [x] Wake word detection (`Hey KOBE` / `OK KOBE`) — OpenWakeWord, `hey_jarvis` stand-in until a custom model is trained
+- [x] Local STT with faster-whisper (GPU-accelerated, `base.en` int8_float16 default)
+- [x] High-quality TTS output (ElevenLabs primary, OpenAI fallback)
+- [x] Barge-in / interruption support (speaking-state-gated)
+- [x] Software mute toggle (global hotkey, also issues InterruptRequested)
+- [x] Physical mute button scaffold (TODO marker for Phase 6 MuteMe Mini)
+- [x] Basic voice command routing (OpenClaw HTTP, echo stub when unconfigured)
+- [x] App launching by voice (`open VS Code`, `open Spotify`, etc.)
+
+**Landed in commit [`eb03903`](../../commit/eb03903).**
 
 ---
 
-## Phase 2 — 🖥️ HUD MVP
+## Phase 2 — 🖥️ HUD MVP  ✅
 
 **Goal:** Give KOBE persistent visual presence on the second monitor.
 
 > *Success: KOBE feels like a live desktop system, not just a voice utility.*
 
-- [ ] Fullscreen always-on HUD (second monitor, kiosk-style)
-- [ ] KOBE state indicator (muted / idle / listening / thinking / speaking)
-- [ ] Live voice transcript panel
-- [ ] Active response display panel
-- [ ] Basic system status widgets (time, date, app state)
-- [ ] Visual theme locked in — dark, cyan/blue, futuristic
+- [x] Fullscreen always-on HUD (second monitor, kiosk-style) — FastAPI + WebSocket at `127.0.0.1:8765`
+- [x] KOBE state indicator (muted / idle / listening / thinking / speaking) — derived server-side, CSS-animated client-side
+- [x] Live voice transcript panel (last 8 transcripts, hydrated on reconnect)
+- [x] Active response display panel
+- [x] Basic system status widgets (clock, foreground app, CPU, memory)
+- [x] Visual theme locked in — dark, cyan/magenta/amber accents, JetBrains Mono, scanline + vignette overlays
+
+**Landed in commit [`9cb4888`](../../commit/9cb4888).**
 
 ---
 
