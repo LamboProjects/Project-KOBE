@@ -24,5 +24,9 @@ config/.env
 *.tflite
 models/
 
-# Scratch
-scratch/
+# Scratch — everything under scratch/ ignored by default, except the
+# autoresearch_kobe infra (harness + program, not results.tsv).
+scratch/*
+!scratch/autoresearch_kobe/
+scratch/autoresearch_kobe/results.tsv
+scratch/autoresearch_kobe/__pycache__/

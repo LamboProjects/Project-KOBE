@@ -77,6 +77,44 @@ class GestureClassifier:
         self._swipe_streak_dir: str | None = None
         self._swipe_streak_count: int = 0
         self._last_fire_ms: dict[str, int] = {}
+        # Release-detection guard: after a static fires, record the KOBE
+        # semantic name so a continuously-held intent can't re-fire the
+        # moment the cooldown expires. We key on KOBE name (`confirm` /
+        # `dismiss` / `point`) rather than raw MediaPipe label because:
+        #   • Same-semantic label flicker (Thumb_Up ↔ Open_Palm, both
+        #     confirm) during a single held gesture looks identical to a
+        #     deliberate same-semantic switch — if the lock cleared on raw
+        #     change, MediaPipe flicker on long holds would re-fire once
+        #     the cooldown elapsed (Codex review round 4 P1).
+        #   • Same-semantic re-intent is ambiguous UX: if the user wants
+        #     two confirms, they can release the hand (no-hand reset) or
+        #     hold a neutral/unmapped pose for `gesture_static_required`
+        #     frames (sustained release, see below).
+        #
+        # Cleared only via a *sustained* release signal, not a single
+        # mismatched frame. One-frame misclassifications (MediaPipe briefly
+        # returning `Closed_Fist` during a Thumb_Up hold, or `Victory` /
+        # low-score during either) look like releases to a naive check but
+        # are just noise. `_static_release_streak` below counts CONSECUTIVE
+        # non-held-consistent frames; when it reaches `gesture_static_required`
+        # we accept it as a real release. A held-consistent frame resets
+        # the streak to 0.
+        #
+        # Release paths:
+        #   (a) no-hand frame — hand physically left the view; cleared
+        #       synchronously in `push()` (no streak needed),
+        #   (b) `_static_release_streak` crosses `gesture_static_required`
+        #       frames of any combination of (i) unmapped/low-score and
+        #       (ii) a *different* KOBE mapping — user relaxed into a
+        #       neutral pose, held a different semantic pose, or had
+        #       sustained tracking noise.
+        self._static_hold_lock: str | None = None
+        # Counts consecutive frames that are NOT held-consistent while a
+        # hold lock is armed. Unifies the former `_unmapped_streak` with a
+        # cross-mapping flicker guard so a single bad frame (Closed_Fist
+        # during Thumb_Up hold, or Victory/low-score) doesn't release the
+        # lock and admit a duplicate fire once cooldown elapses.
+        self._static_release_streak: int = 0
 
     # ------------------------------------------------------------------ API
 
@@ -90,6 +128,8 @@ class GestureClassifier:
         self._swipe_streak_dir = None
         self._swipe_streak_count = 0
         self._last_fire_ms.clear()
+        self._static_hold_lock = None
+        self._static_release_streak = 0
 
     def push(self, frame: "FrameResult") -> list[GestureEvent]:
         """Append a frame and return any gestures that fire on this tick.
@@ -114,6 +154,10 @@ class GestureClassifier:
             self._static_scores.clear()
             self._static_hands.clear()
             self._static_raw_labels.clear()
+            # No-hand counts as release — drop the hold-lock so the next
+            # formed pose can fire once cooldown expires.
+            self._static_hold_lock = None
+            self._static_release_streak = 0
             return events
 
         self._ingest_static(frame, has_hand)
@@ -134,11 +178,54 @@ class GestureClassifier:
         score = float(frame.gesture_score or 0.0)
         raw = frame.gesture_label or ""
         kobe_label = _PRETRAINED_MAP.get(raw) if raw else None
-        if (
-            not has_hand
-            or kobe_label is None
-            or score < float(self._s.gesture_min_score)
-        ):
+        usable = (
+            has_hand
+            and kobe_label is not None
+            and score >= float(self._s.gesture_min_score)
+        )
+
+        # Release-streak bookkeeping. A frame is "held-consistent" only if
+        # it has a usable mapping that MATCHES the current lock. Anything
+        # else — unmapped, low-score, or a different KOBE mapping —
+        # increments the streak. Once it crosses `gesture_static_required`,
+        # the lock releases. One-frame anomalies (flicker) never cross
+        # the threshold; sustained release / sustained misclassification /
+        # sustained different-pose crosses it.
+        if self._static_hold_lock is not None:
+            held_consistent = usable and kobe_label == self._static_hold_lock
+            if held_consistent:
+                self._static_release_streak = 0
+            else:
+                self._static_release_streak += 1
+                if self._static_release_streak >= int(self._s.gesture_static_required):
+                    self._static_hold_lock = None
+                    self._static_release_streak = 0
+                    # Drain the vote buffer: the frames that accumulated
+                    # the release streak are stale — they're either
+                    # tracking noise or a semantic switch. Either way,
+                    # they must not immediately translate into a spurious
+                    # cross-semantic fire on the same tick. Without this,
+                    # a sustained `Closed_Fist` misclassification during a
+                    # Thumb_Up hold would clear the lock then immediately
+                    # fire `dismiss` from the same five bad frames
+                    # (Codex review round 7 P1).
+                    #
+                    # Design tradeoff (Codex review round 8 P2): a
+                    # legitimate direct pose switch (Thumb_Up → Closed_Fist
+                    # without releasing the hand) now pays ~4 extra frames
+                    # of latency because the new gesture has to debounce
+                    # from an empty buffer. We accept that cost: the
+                    # alternative is firing opposite-semantic commands on
+                    # MediaPipe misclassifications, which is strictly
+                    # worse UX for a confirm/dismiss/point system. The
+                    # classifier's debounce contract ("N sustained frames
+                    # of evidence before firing") stays symmetric this way.
+                    self._static_labels.clear()
+                    self._static_scores.clear()
+                    self._static_hands.clear()
+                    self._static_raw_labels.clear()
+
+        if not usable:
             self._static_labels.append(_NONE_LABEL)
             self._static_scores.append(0.0)
             self._static_hands.append("")
@@ -161,10 +248,23 @@ class GestureClassifier:
         winner = next((n for n, c in counts.items() if c >= required), None)
         if winner is None:
             return None
+        if winner == self._static_hold_lock:
+            # User is still holding the same *semantic intent* that last
+            # fired (same KOBE name, even if the raw MediaPipe label
+            # flickers between same-semantic aliases like Thumb_Up ↔
+            # Open_Palm). Drain the window so the vote doesn't keep
+            # computing the same winner every frame, but do NOT emit —
+            # release (hand gone, different KOBE mapping, or sustained
+            # unmapped) must precede re-fire.
+            self._static_labels.clear()
+            self._static_scores.clear()
+            self._static_hands.clear()
+            self._static_raw_labels.clear()
+            return None
         if self._is_on_cooldown(winner, ts_ms):
-            # Clear the window during cooldown too — otherwise the same vote
-            # would simply re-trigger the moment the cooldown expires, even
-            # though the user never released the pose.
+            # Cooldown still running (user released and re-formed too fast).
+            # Clear the window so we don't burn CPU re-computing the same
+            # winner; the next fresh buffer fills after cooldown expires.
             self._static_labels.clear()
             self._static_scores.clear()
             self._static_hands.clear()
@@ -188,6 +288,10 @@ class GestureClassifier:
         self._static_scores.clear()
         self._static_hands.clear()
         self._static_raw_labels.clear()
+        # Arm the hold-lock on the KOBE semantic name. Switching to a
+        # different KOBE mapping, releasing the hand, or holding a
+        # sustained unmapped pose clears the lock; see `_ingest_static`.
+        self._static_hold_lock = winner
         return self._emit(
             winner,
             confidence,
