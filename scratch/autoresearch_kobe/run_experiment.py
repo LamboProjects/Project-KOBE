@@ -10,6 +10,17 @@ The keep/discard decision is made by the iteration loop (the caller) based on
 """
 from __future__ import annotations
 
+# CRITICAL: set `KOBE_ENV_FILE` BEFORE importing anything that touches
+# `kobe.config`. `Settings.model_config.env_file = _resolve_env_file()` is
+# evaluated at class definition time (import time), so any env override must
+# be in place first or the harness will benchmark against a developer's
+# `config/.env` instead of pristine defaults — making `results.tsv` machine-
+# dependent and decoupling keep/discard decisions from the code diff under test.
+import os as _os_preload
+
+_NULL_PATH = "NUL" if _os_preload.name == "nt" else "/dev/null"
+_os_preload.environ["KOBE_ENV_FILE"] = _NULL_PATH
+
 import os
 import subprocess
 import sys
@@ -18,6 +29,8 @@ from pathlib import Path
 # Make sibling modules importable when run as a script from the repo root.
 sys.path.insert(0, str(Path(__file__).parent))
 
+# The env override above must precede this import — `harness` pulls in
+# `kobe.config.Settings`, which freezes `env_file` at class definition.
 from harness import evaluate, format_report  # noqa: E402
 
 
@@ -46,12 +59,9 @@ def _git_dirty() -> bool:
 
 def main() -> int:
     description = sys.argv[1] if len(sys.argv) > 1 else "<unspecified>"
-    # Force pristine defaults regardless of shell env. `setdefault` would let
-    # a pre-existing `KOBE_ENV_FILE` leak developer-specific overrides into
-    # the benchmark, making `results.tsv` machine-dependent and decoupling
-    # keep/discard decisions from the code diff the experiment is testing.
-    null_path = "NUL" if os.name == "nt" else "/dev/null"
-    os.environ["KOBE_ENV_FILE"] = null_path
+    # Reaffirm the override for clarity; the critical assignment happens at
+    # module-top so the early `kobe.config` import sees the pristine path.
+    assert os.environ.get("KOBE_ENV_FILE") == _NULL_PATH
 
     ev = evaluate()
     print(format_report(ev))

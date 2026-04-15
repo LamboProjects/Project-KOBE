@@ -20,6 +20,16 @@ reserved for committed experiments.
 """
 from __future__ import annotations
 
+# CRITICAL: set `KOBE_ENV_FILE` BEFORE importing anything that touches
+# `kobe.config`. See run_experiment.py for the full explanation — in short,
+# `Settings.model_config.env_file` freezes at class definition time, so a
+# late override is a no-op and the sweep would benchmark against a local
+# `config/.env` instead of pristine defaults.
+import os as _os_preload
+
+_NULL_PATH = "NUL" if _os_preload.name == "nt" else "/dev/null"
+_os_preload.environ["KOBE_ENV_FILE"] = _NULL_PATH
+
 import argparse
 import itertools
 import os
@@ -28,14 +38,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# These imports trigger `kobe.config.Settings` class definition which
+# resolves `env_file` via `_resolve_env_file()`; the env override above
+# must be in place first.
 from kobe.config import Settings  # noqa: E402
 
 from harness import evaluate  # noqa: E402
-
-
-def _force_pristine_env() -> None:
-    null_path = "NUL" if os.name == "nt" else "/dev/null"
-    os.environ.setdefault("KOBE_ENV_FILE", null_path)
 
 
 def _parse_value(raw: str) -> float | int | str | bool:
@@ -73,7 +81,10 @@ def run_one(overrides: dict[str, object]) -> dict[str, float]:
 
 
 def main() -> int:
-    _force_pristine_env()
+    # Reaffirm the override for clarity; the critical assignment happens at
+    # module-top so the early `kobe.config` import sees the pristine path.
+    assert os.environ.get("KOBE_ENV_FILE") == _NULL_PATH
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--param", action="append", required=True, help="Param name, repeatable")
     ap.add_argument("--values", action="append", required=True, help="Comma-separated values, one --values per --param")

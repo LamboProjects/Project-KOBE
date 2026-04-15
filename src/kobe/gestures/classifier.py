@@ -79,11 +79,21 @@ class GestureClassifier:
         self._last_fire_ms: dict[str, int] = {}
         # Release-detection guard: after a static fires, record the KOBE name
         # so a *continuously-held* pose can't re-fire the moment the cooldown
-        # expires. Cleared on (a) no-hand frame, (b) a valid static frame
-        # whose KOBE mapping differs from the held name. Without this, a held
-        # Thumb_Up fires once at frame ~5, then re-fires around frame
-        # 5+cooldown/33 as the deque refills — an FP at real UX.
+        # expires. Cleared on:
+        #   (a) no-hand frame — hand physically left the view,
+        #   (b) valid-label frame with a different KOBE mapping — user
+        #       switched to another recognized pose,
+        #   (c) `_static_unmapped_streak` consecutive frames with no usable
+        #       KOBE label — user relaxed into a neutral/unmapped pose while
+        #       still in frame. Gated by `gesture_static_required` so a
+        #       single MediaPipe flicker doesn't count as release, but a
+        #       sustained relaxation does.
         self._static_hold_lock: str | None = None
+        # Counts consecutive unmapped-or-low-score frames while a hold lock
+        # is armed. Reset to 0 on any mapped high-confidence frame or
+        # explicit release path. Used to distinguish transient flicker from
+        # genuine in-frame relaxation.
+        self._static_unmapped_streak: int = 0
 
     # ------------------------------------------------------------------ API
 
@@ -98,6 +108,7 @@ class GestureClassifier:
         self._swipe_streak_count = 0
         self._last_fire_ms.clear()
         self._static_hold_lock = None
+        self._static_unmapped_streak = 0
 
     def push(self, frame: "FrameResult") -> list[GestureEvent]:
         """Append a frame and return any gestures that fire on this tick.
@@ -125,6 +136,7 @@ class GestureClassifier:
             # No-hand counts as release — drop the hold-lock so the next
             # formed pose can fire once cooldown expires.
             self._static_hold_lock = None
+            self._static_unmapped_streak = 0
             return events
 
         self._ingest_static(frame, has_hand)
@@ -154,21 +166,25 @@ class GestureClassifier:
             self._static_scores.append(0.0)
             self._static_hands.append("")
             self._static_raw_labels.append("")
-            # Do NOT clear `_static_hold_lock` here. A transient MediaPipe
-            # flicker (unmapped label like "Victory", or a momentary score
-            # dip below `gesture_min_score` while the user keeps holding
-            # their pose) looks identical to this branch but is explicitly
-            # NOT a release. Clearing on it reintroduces the duplicate-fire
-            # bug the lock exists to prevent. Release is detected only via
-            # (a) no-hand frames — `push()` clears the lock there — or
-            # (b) a high-confidence frame whose KOBE mapping differs from
-            # the held name — handled below after the valid-label append.
+            # Count this as a potential release frame — but only commit to
+            # clearing the lock after `gesture_static_required` consecutive
+            # unmapped/low-score frames. One-frame flicker leaves the lock
+            # intact; sustained in-frame relaxation clears it so the user's
+            # next deliberate pose can fire normally.
+            if self._static_hold_lock is not None:
+                self._static_unmapped_streak += 1
+                if self._static_unmapped_streak >= int(self._s.gesture_static_required):
+                    self._static_hold_lock = None
+                    self._static_unmapped_streak = 0
             return
         self._static_labels.append(kobe_label)
         self._static_scores.append(score)
         hand = (frame.handedness or "").lower()
         self._static_hands.append(hand if hand in ("left", "right") else "")
         self._static_raw_labels.append(raw)
+        # A mapped high-confidence frame breaks any running unmapped streak:
+        # the user is back to a recognized pose.
+        self._static_unmapped_streak = 0
         # Release-detection: any frame whose KOBE mapping differs from the
         # held-locked name counts as "user moved to a different pose", so
         # clear the lock and let the new pose's vote fire normally.
