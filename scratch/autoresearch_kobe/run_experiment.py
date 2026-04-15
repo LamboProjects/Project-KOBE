@@ -46,11 +46,12 @@ def _git_dirty() -> bool:
 
 def main() -> int:
     description = sys.argv[1] if len(sys.argv) > 1 else "<unspecified>"
-    # Run harness without any config/.env side effects (the tuner wants pristine
-    # defaults). KOBE_ENV_FILE=/dev/null makes pydantic-settings fall through to
-    # its built-in defaults; on Windows we use NUL.
+    # Force pristine defaults regardless of shell env. `setdefault` would let
+    # a pre-existing `KOBE_ENV_FILE` leak developer-specific overrides into
+    # the benchmark, making `results.tsv` machine-dependent and decoupling
+    # keep/discard decisions from the code diff the experiment is testing.
     null_path = "NUL" if os.name == "nt" else "/dev/null"
-    os.environ.setdefault("KOBE_ENV_FILE", null_path)
+    os.environ["KOBE_ENV_FILE"] = null_path
 
     ev = evaluate()
     print(format_report(ev))

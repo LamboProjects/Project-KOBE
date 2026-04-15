@@ -154,11 +154,15 @@ class GestureClassifier:
             self._static_scores.append(0.0)
             self._static_hands.append("")
             self._static_raw_labels.append("")
-            # A frame with no usable KOBE label counts as "not the held pose",
-            # so a held confirm followed by a blank frame releases the lock
-            # and the next confirm pose is free to fire.
-            if self._static_hold_lock is not None:
-                self._static_hold_lock = None
+            # Do NOT clear `_static_hold_lock` here. A transient MediaPipe
+            # flicker (unmapped label like "Victory", or a momentary score
+            # dip below `gesture_min_score` while the user keeps holding
+            # their pose) looks identical to this branch but is explicitly
+            # NOT a release. Clearing on it reintroduces the duplicate-fire
+            # bug the lock exists to prevent. Release is detected only via
+            # (a) no-hand frames — `push()` clears the lock there — or
+            # (b) a high-confidence frame whose KOBE mapping differs from
+            # the held name — handled below after the valid-label append.
             return
         self._static_labels.append(kobe_label)
         self._static_scores.append(score)
