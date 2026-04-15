@@ -200,6 +200,18 @@ class GestureClassifier:
                 if self._static_release_streak >= int(self._s.gesture_static_required):
                     self._static_hold_lock = None
                     self._static_release_streak = 0
+                    # Drain the vote buffer: the frames that accumulated
+                    # the release streak are stale — they're either
+                    # tracking noise or a semantic switch. Either way,
+                    # they must not immediately translate into a spurious
+                    # cross-semantic fire on the same tick. Without this,
+                    # a sustained `Closed_Fist` misclassification during a
+                    # Thumb_Up hold would clear the lock then immediately
+                    # fire `dismiss` from the same five bad frames.
+                    self._static_labels.clear()
+                    self._static_scores.clear()
+                    self._static_hands.clear()
+                    self._static_raw_labels.clear()
 
         if not usable:
             self._static_labels.append(_NONE_LABEL)

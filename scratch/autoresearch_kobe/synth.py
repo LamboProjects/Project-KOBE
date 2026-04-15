@@ -823,6 +823,41 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression (Codex review round 7 P1): sustained cross-semantic
+    # misclassification must not produce a spurious cross-semantic fire
+    # when the release streak crosses threshold. User holds Thumb_Up
+    # (confirm). MediaPipe misclassifies as Closed_Fist for 5 CONSECUTIVE
+    # frames (matching `gesture_static_required`). Pre-fix behaviour:
+    # streak crosses threshold at frame 9, lock clears, the 5 accumulated
+    # dismiss votes in `_static_labels` win on the same tick, and the
+    # classifier emits a REAL `dismiss` — opposite semantic, fully
+    # user-visible. Fix drains the vote buffer together with the lock so
+    # those stale votes don't count. User then returns to Thumb_Up;
+    # because cooldown is per-name and dismiss never fired, confirm
+    # stays on cooldown until frame 40 and the next Thumb_Up-dominated
+    # vote would fire then — but our `expected_events` allows [0, 10]
+    # only, since the real dismiss-era is past. Any cross-fire during
+    # [5, 9] counts as a clear regression.
+    # Test probes exactly the critical property: the 5 Closed_Fist frames
+    # must NOT cause a spurious `dismiss` event around frame 9. We truncate
+    # the stream there — follow-on behaviour (whether a second confirm
+    # re-fires after cooldown) is a separate UX question covered by the
+    # flicker / relax cases above. What Codex P1 cared about is the
+    # cross-semantic leak, and that's what this case guards against.
+    cross_sustained = (
+        [frame(i, "Thumb_Up", 0.9) for i in range(5)]
+        + [frame(5 + i, "Closed_Fist", 0.9) for i in range(5)]
+        + [frame(10, "", 0.0, has_hand=False)]  # natural end-of-stream sentinel
+    )
+    cases.append(
+        StreamCase(
+            name="hard_cross_mapping_sustained",
+            frames=cross_sustained,
+            expected_events=[("confirm", 0, 4)],
+            forbidden_events=["dismiss", "point", "swipe_left", "swipe_right"],
+        )
+    )
+
     # Regression (Codex review round 6 P1): cross-semantic misclassification
     # during a long hold. User holds Thumb_Up (confirm) for 60 frames;
     # MediaPipe briefly emits `Closed_Fist` (dismiss) for one frame every
