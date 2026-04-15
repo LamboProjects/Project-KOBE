@@ -14,12 +14,19 @@ from __future__ import annotations
 # `kobe.config`. `Settings.model_config.env_file = _resolve_env_file()` is
 # evaluated at class definition time (import time), so any env override must
 # be in place first or the harness will benchmark against a developer's
-# `config/.env` instead of pristine defaults — making `results.tsv` machine-
-# dependent and decoupling keep/discard decisions from the code diff under test.
+# `config/.env` instead of pristine defaults.
+#
+# Pointing at `NUL` / `/dev/null` is NOT enough — `_resolve_env_file()`
+# iterates `KOBE_ENV_FILE` first but requires `p.is_file()` before using it,
+# which is False for device pseudo-files on both Windows and *nix. The
+# resolver then silently falls through to `config/.env` and leaks local
+# overrides into the benchmark. Instead we point at a REAL empty file
+# shipped next to this script.
 import os as _os_preload
+from pathlib import Path as _Path
 
-_NULL_PATH = "NUL" if _os_preload.name == "nt" else "/dev/null"
-_os_preload.environ["KOBE_ENV_FILE"] = _NULL_PATH
+_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
+_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
 
 import os
 import subprocess
@@ -61,7 +68,7 @@ def main() -> int:
     description = sys.argv[1] if len(sys.argv) > 1 else "<unspecified>"
     # Reaffirm the override for clarity; the critical assignment happens at
     # module-top so the early `kobe.config` import sees the pristine path.
-    assert os.environ.get("KOBE_ENV_FILE") == _NULL_PATH
+    assert os.environ.get("KOBE_ENV_FILE") == _EMPTY_ENV
 
     ev = evaluate()
     print(format_report(ev))

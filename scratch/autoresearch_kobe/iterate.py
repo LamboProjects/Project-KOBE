@@ -22,13 +22,14 @@ from __future__ import annotations
 
 # CRITICAL: set `KOBE_ENV_FILE` BEFORE importing anything that touches
 # `kobe.config`. See run_experiment.py for the full explanation — in short,
-# `Settings.model_config.env_file` freezes at class definition time, so a
-# late override is a no-op and the sweep would benchmark against a local
-# `config/.env` instead of pristine defaults.
+# `Settings.model_config.env_file` freezes at class definition time, AND
+# `NUL`/`/dev/null` aren't regular files so the resolver falls through to
+# `config/.env`. We point at a real empty file shipped next to this script.
 import os as _os_preload
+from pathlib import Path as _Path
 
-_NULL_PATH = "NUL" if _os_preload.name == "nt" else "/dev/null"
-_os_preload.environ["KOBE_ENV_FILE"] = _NULL_PATH
+_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
+_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
 
 import argparse
 import itertools
@@ -83,7 +84,7 @@ def run_one(overrides: dict[str, object]) -> dict[str, float]:
 def main() -> int:
     # Reaffirm the override for clarity; the critical assignment happens at
     # module-top so the early `kobe.config` import sees the pristine path.
-    assert os.environ.get("KOBE_ENV_FILE") == _NULL_PATH
+    assert os.environ.get("KOBE_ENV_FILE") == _EMPTY_ENV
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--param", action="append", required=True, help="Param name, repeatable")
