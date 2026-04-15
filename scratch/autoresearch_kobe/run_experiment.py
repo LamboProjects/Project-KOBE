@@ -85,6 +85,11 @@ def main() -> int:
     if not tsv.exists():
         tsv.write_text(header, encoding="utf-8")
 
+    # TSV requires tab- and newline-free fields. Any copy-pasted
+    # description containing either would shift columns or split the row
+    # in half, making `results.tsv` unparseable. Collapse both to spaces.
+    safe_description = description.replace("\t", " ").replace("\n", " ").replace("\r", " ").strip()
+
     train_f1 = ev["train"]["f1"]
     heldout_f1 = ev["heldout"]["f1"]
     combined = ev["combined"]
@@ -92,7 +97,7 @@ def main() -> int:
         f"{sha}\t{train_f1:.4f}\t{heldout_f1:.4f}\t{combined['f1']:.4f}\t"
         f"{combined['precision']:.4f}\t{combined['recall']:.4f}\t"
         f"{combined['avg_latency_frames']:.2f}\t{combined['score']:.4f}\t"
-        f"pending\t{description}\n"
+        f"pending\t{safe_description}\n"
     )
     with tsv.open("a", encoding="utf-8") as fh:
         fh.write(row)

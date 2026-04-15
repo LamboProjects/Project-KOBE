@@ -18,6 +18,20 @@ so F1 strictly dominates but latency breaks ties.
 """
 from __future__ import annotations
 
+# CRITICAL: preload `KOBE_ENV_FILE` to the shipped empty env BEFORE importing
+# `kobe.config`. Mirrors the logic in `run_experiment.py` / `iterate.py`, but
+# is REQUIRED here too because `harness.py` may be run directly (or imported
+# by `preview_server`-style tools) without the wrapper scripts. Without this,
+# `Settings()` at `evaluate()` time resolves `env_file` at class definition
+# which was triggered by this module's import — so `_resolve_env_file()`
+# silently picks up the developer's local `config/.env` and the benchmark
+# output becomes machine-specific.
+import os as _os_preload
+from pathlib import Path as _Path
+
+_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
+_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
+
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
