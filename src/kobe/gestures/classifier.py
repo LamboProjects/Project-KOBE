@@ -77,24 +77,29 @@ class GestureClassifier:
         self._swipe_streak_dir: str | None = None
         self._swipe_streak_count: int = 0
         self._last_fire_ms: dict[str, int] = {}
-        # Release-detection guard: after a static fires, record the *raw*
-        # MediaPipe label that dominated the winning vote so a *continuously-
-        # held specific pose* can't re-fire the moment the cooldown expires.
-        # We key on raw label (Thumb_Up, Open_Palm, ...) rather than the
-        # KOBE semantic name because two different raw poses that map to the
-        # same semantic action (e.g. Thumb_Up and Open_Palm both → confirm)
-        # still represent distinct user gestures; switching between them is
-        # a deliberate re-intent and must be allowed to fire twice.
+        # Release-detection guard: after a static fires, record the KOBE
+        # semantic name so a continuously-held intent can't re-fire the
+        # moment the cooldown expires. We key on KOBE name (`confirm` /
+        # `dismiss` / `point`) rather than raw MediaPipe label because:
+        #   • Same-semantic label flicker (Thumb_Up ↔ Open_Palm, both
+        #     confirm) during a single held gesture looks identical to a
+        #     deliberate same-semantic switch — if the lock cleared on raw
+        #     change, MediaPipe flicker on long holds would re-fire once
+        #     the cooldown elapsed (Codex review round 4 P1).
+        #   • Same-semantic re-intent is ambiguous UX: if the user wants
+        #     two confirms, they can release the hand (no-hand reset) or
+        #     hold a neutral/unmapped pose for `gesture_static_required`
+        #     frames (sustained release, see below).
         #
         # Cleared on:
         #   (a) no-hand frame — hand physically left the view,
-        #   (b) valid-label frame with a *different raw label* — user
-        #       switched to another specific pose (same-semantic or not),
+        #   (b) valid-label frame with a *different KOBE mapping* — user
+        #       switched to a different semantic action (confirm→dismiss),
         #   (c) `_static_unmapped_streak` consecutive frames with no usable
-        #       KOBE label — user relaxed into a neutral/unmapped pose while
-        #       still in frame. Gated by `gesture_static_required` so a
-        #       single MediaPipe flicker doesn't count as release, but a
-        #       sustained relaxation does.
+        #       KOBE label — user relaxed into a neutral/unmapped pose
+        #       while still in frame. Gated by `gesture_static_required`
+        #       so a single MediaPipe flicker doesn't count as release,
+        #       but a sustained relaxation does.
         self._static_hold_lock: str | None = None
         # Counts consecutive unmapped-or-low-score frames while a hold lock
         # is armed. Reset to 0 on any mapped high-confidence frame or
@@ -192,13 +197,13 @@ class GestureClassifier:
         # A mapped high-confidence frame breaks any running unmapped streak:
         # the user is back to a recognized pose.
         self._static_unmapped_streak = 0
-        # Release-detection: any frame whose *raw* MediaPipe label differs
-        # from the held-locked raw label counts as "user moved to a
-        # different specific pose", so clear the lock and let the new
-        # pose's vote fire normally. Keying on raw (not KOBE mapping) lets
-        # a Thumb_Up confirm followed by an Open_Palm confirm fire twice —
-        # both are legitimate user intents.
-        if self._static_hold_lock is not None and raw != self._static_hold_lock:
+        # Release-detection: a valid frame whose KOBE mapping differs from
+        # the held-locked name means the user switched to a different
+        # semantic action (e.g. confirm → dismiss). Clear the lock so the
+        # new intent's vote fires normally. Same-semantic raw switches
+        # (Thumb_Up ↔ Open_Palm both → confirm) do NOT clear — see the
+        # _static_hold_lock rationale for why.
+        if self._static_hold_lock is not None and kobe_label != self._static_hold_lock:
             self._static_hold_lock = None
 
     def _maybe_fire_static(self, ts_ms: int) -> GestureEvent | None:
@@ -212,22 +217,14 @@ class GestureClassifier:
         winner = next((n for n, c in counts.items() if c >= required), None)
         if winner is None:
             return None
-        # Hold-lock check: compare the most-common *raw* label among the
-        # winning votes against the stored raw lock. A continuous hold of
-        # the same specific pose matches; a deliberate switch to another
-        # raw pose (even one that maps to the same KOBE name) does not.
-        raw_counter_for_lock = Counter(
-            r
-            for lbl, r in zip(self._static_labels, self._static_raw_labels)
-            if lbl == winner and r
-        )
-        top_raw_for_lock = raw_counter_for_lock.most_common(1)
-        winner_raw = top_raw_for_lock[0][0] if top_raw_for_lock else ""
-        if self._static_hold_lock is not None and winner_raw == self._static_hold_lock:
-            # User is still holding the exact same pose that last fired.
-            # Drain the window so the vote doesn't keep computing the same
-            # winner every frame, but do NOT emit — release (hand gone,
-            # raw label change, or sustained unmapped) must precede re-fire.
+        if winner == self._static_hold_lock:
+            # User is still holding the same *semantic intent* that last
+            # fired (same KOBE name, even if the raw MediaPipe label
+            # flickers between same-semantic aliases like Thumb_Up ↔
+            # Open_Palm). Drain the window so the vote doesn't keep
+            # computing the same winner every frame, but do NOT emit —
+            # release (hand gone, different KOBE mapping, or sustained
+            # unmapped) must precede re-fire.
             self._static_labels.clear()
             self._static_scores.clear()
             self._static_hands.clear()
@@ -260,10 +257,10 @@ class GestureClassifier:
         self._static_scores.clear()
         self._static_hands.clear()
         self._static_raw_labels.clear()
-        # Arm the hold-lock on the *raw* label that dominated this winning
-        # vote. Switching to a different raw pose (even same-semantic) or
-        # releasing the hand clears the lock; see `_ingest_static`.
-        self._static_hold_lock = raw_label
+        # Arm the hold-lock on the KOBE semantic name. Switching to a
+        # different KOBE mapping, releasing the hand, or holding a
+        # sustained unmapped pose clears the lock; see `_ingest_static`.
+        self._static_hold_lock = winner
         return self._emit(
             winner,
             confidence,

@@ -137,7 +137,7 @@ class Settings(BaseSettings):
     gesture_min_detection_confidence: float = 0.6
     gesture_min_tracking_confidence: float = 0.5
     gesture_min_presence_confidence: float = 0.5
-    gesture_min_score: float = 0.5
+    gesture_min_score: float = 0.6
     gesture_num_hands: int = 1
     # Static-gesture debounce: top label must win N_required of N_window frames.
     gesture_static_window: int = 8

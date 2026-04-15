@@ -823,23 +823,21 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
-    # Regression: user fires confirm with Thumb_Up, switches to Open_Palm
-    # (different raw pose, same KOBE mapping), wants to fire confirm again.
-    # Codex review round 3 P2: keying the hold-lock on KOBE name made this
-    # case stuck — Open_Palm would never clear the lock because both poses
-    # map to "confirm". Keying on raw label fixes it.
-    # Layout: 6 Thumb_Up (fire 1) + 40 Open_Palm (cooldown expires here,
-    # lock cleared on raw mismatch at frame 6, then Open_Palm rebuilds the
-    # vote and fires confirm 2).
-    alt_same_semantic = (
-        [frame(i, "Thumb_Up", 0.9) for i in range(6)]
-        + [frame(6 + i, "Open_Palm", 0.9) for i in range(40)]
-    )
+    # Regression (Codex review round 4 P1): same-semantic raw-label flicker
+    # during a long continuous hold must not re-fire. User holds confirm
+    # for 60 frames; MediaPipe alternates Thumb_Up / Open_Palm every frame
+    # (both map to confirm). Without the KOBE-semantic lock, the raw-label
+    # alternation would clear a raw-based lock on every frame, and once
+    # `gesture_cooldown_ms` (≈36 frames at 30 fps) elapsed a second
+    # confirm would fire around frame 44 — a duplicate on a single held
+    # intent. The KOBE-semantic lock blocks the second fire: the winner
+    # stays `confirm`, the lock stays `confirm`, no release ever occurs.
+    long_flicker_labels = ["Thumb_Up", "Open_Palm"] * 30
     cases.append(
         StreamCase(
-            name="hard_alt_raw_same_semantic",
-            frames=alt_same_semantic,
-            expected_events=[("confirm", 0, 11), ("confirm", 40, 45)],
+            name="hard_long_same_semantic_flicker",
+            frames=[frame(i, lab, 0.9) for i, lab in enumerate(long_flicker_labels)],
+            expected_events=[("confirm", 0, 59)],
             forbidden_events=["dismiss", "point", "swipe_left", "swipe_right"],
         )
     )
