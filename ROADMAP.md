@@ -57,15 +57,16 @@
 
 ---
 
-## Phase 4 — 👁️ Screen Vision & Context Awareness
+## Phase 4 — 👁️ Screen Vision & Context Awareness  🟡 *foundation only*
 
 **Goal:** Increase usefulness during active work.
 
 > *Success: KOBE can interpret what's on screen in a practical, helpful way.*
 
-- [ ] On-demand screen inspection (`what's on my screen?`)
-- [ ] Active app context detection
-- [ ] Coding help in VS Code context
+- [x] **Foundation**: capture primitives (`mss` foreground/full/region — region requires a valid box, never silently widens to all monitors), pluggable `VisionBackend` protocol, `NullBackend` stub, async `vision_service` wired into the bus and the `screen_inspect` action namespace
+- [ ] On-demand screen inspection (`what's on my screen?`) — needs a real backend
+- [ ] Active app context detection — `SystemStatus.foreground_app` already published; needs prompt routing
+- [ ] Coding help in VS Code context — needs Claude/OpenAI vision backend wired
 - [ ] Print settings review in Bambu Studio
 - [ ] CAD troubleshooting assistance
 

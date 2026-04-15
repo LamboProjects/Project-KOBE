@@ -46,7 +46,7 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 | 🖥️ **Windows** | System volume via pycaw, window focus/min/max via pygetwindow, show-desktop | ✅ Built |
 | 🛑 **Safety** | Confirmation flow for destructive actions (yes/no voice challenge before cancel/pause) | ✅ Built |
 | 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned (Phase 5) |
-| 👁️ **Screen Vision** | On-demand screen understanding | 🔲 Planned (Phase 4) |
+| 👁️ **Screen Vision** | mss capture + pluggable `VisionBackend` (NullBackend stub today) | 🟡 Foundation built (Phase 4) |
 | ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned (Phase 7) |
 
 ---
@@ -204,6 +204,7 @@ cp config/.env.example config/.env
 uv run python scripts/smoke_phase1.py   # brain → tts → actions path
 uv run python scripts/smoke_phase2.py   # HUD routes + WS protocol
 uv run python scripts/smoke_phase3.py   # confirmation flow + executor allowlist
+uv run python scripts/smoke_phase4.py   # vision capture + null backend + screen_inspect action
 
 # 5. Run the live pipeline (start your terminal as Administrator
 #    if you want the ctrl+alt+k global mute hotkey to work)

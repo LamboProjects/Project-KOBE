@@ -56,6 +56,9 @@ _EVENT_TYPES: tuple[type, ...] = (
     kevents.NowPlayingChanged,
     kevents.ConfirmationRequested,
     kevents.ConfirmationResult,
+    # Phase 4 foundation
+    kevents.VisionRequested,
+    kevents.VisionResult,
 )
 
 

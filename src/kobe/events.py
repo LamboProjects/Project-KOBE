@@ -147,6 +147,36 @@ class ConfirmationResult:
     confirmed: bool
 
 
+@dataclass(frozen=True, slots=True)
+class VisionRequested:
+    """Ask the vision service to capture + analyse the screen.
+
+    `mode` chooses what to capture:
+      - `"foreground"` — just the current foreground window (default)
+      - `"full"`       — every monitor stitched together
+      - `"region"`     — a rectangle given by `region=(x,y,w,h)`
+    """
+    request_id: str
+    question: str
+    mode: str = "foreground"
+    region: tuple[int, int, int, int] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VisionResult:
+    """Outcome of a VisionRequested. `summary` is the human-readable text the brain
+    (or TTS) will speak. `image_path` is populated only when the service was asked
+    to persist the screenshot to disk."""
+    request_id: str
+    ok: bool
+    summary: str
+    width: int
+    height: int
+    backend: str
+    image_path: str = ""
+    timestamp_iso: str = ""
+
+
 # Union of everything — handy for type hints in the bus.
 Event = (
     WakeDetected
@@ -166,4 +196,6 @@ Event = (
     | NowPlayingChanged
     | ConfirmationRequested
     | ConfirmationResult
+    | VisionRequested
+    | VisionResult
 )

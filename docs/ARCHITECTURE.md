@@ -97,7 +97,9 @@ hud_backend updates display
 | `discord_alerts` | `src/kobe/integrations/discord.py` | Webhook poster on `PrinterAlert`, 3 s dedupe | 3 | ✅ |
 | `windows_automation` | `src/kobe/automation/windows_ctrl.py` | pycaw volume + pygetwindow focus/min/max + win+d | 3 | ✅ |
 | `confirmation_manager` | `src/kobe/actions/confirmation.py` | Destructive-action yes/no voice challenge, sequential | 3 | ✅ |
-| `screen_vision_service` | `src/kobe/vision/` | On-demand screen analysis | 4 | 🔲 |
+| `vision_service` | `src/kobe/vision/service.py` | Captures the screen on `screen_inspect` action or `VisionRequested` event, runs a pluggable `VisionBackend`, publishes `VisionResult` + `ResponseReady`. Phase 4 foundation ships only the `NullBackend` stub. | 4 | 🟡 foundation |
+| `vision_capture` | `src/kobe/vision/capture.py` | mss-based screenshot for foreground/full/region. region requires a valid box (no silent widening). | 4 | ✅ |
+| `vision_backends` | `src/kobe/vision/backends.py` | `VisionBackend` Protocol + `build_backend(settings)` factory. Real backends (OpenClaw, OpenAI, Moondream) come later. | 4 | 🟡 |
 | `gesture_service` | `src/kobe/gestures/` | Webcam hand tracking | 5 | 🔲 |
 | `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
 
@@ -120,6 +122,8 @@ hud_backend updates display
 | `NowPlayingChanged` | spotify | hud (cache + relay) |
 | `ConfirmationRequested` | brain (when action is destructive) | confirmation, hud (relay) |
 | `ConfirmationResult` | confirmation | hud (relay) |
+| `VisionRequested` | brain (or any caller) | vision_service |
+| `VisionResult` | vision_service | hud (relay) |
 
 ---
 

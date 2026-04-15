@@ -105,6 +105,16 @@ class Settings(BaseSettings):
     confirmation_yes_words: str = "yes,yeah,yep,confirm,confirmed,do it,go ahead,sure"
     confirmation_no_words: str = "no,nope,cancel,stop,nevermind,never mind,abort"
 
+    # Screen vision (Phase 4 foundation)
+    vision_enabled: bool = True
+    # Which backend analyses the screenshot. "null" = foundation stub (no model call).
+    # Future values: "openclaw" | "openai" | "local". Unconfigured backends fall back
+    # to null with a warning.
+    vision_backend: str = "null"
+    vision_save_screenshots: bool = False
+    vision_screenshot_dir: str = "scratch/vision"
+    vision_max_capture_seconds: float = 5.0
+
     @property
     def confirmation_yes_list(self) -> list[str]:
         return [w.strip().lower() for w in self.confirmation_yes_words.split(",") if w.strip()]

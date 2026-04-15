@@ -43,6 +43,7 @@ async def _run_all() -> None:
     from kobe.integrations.steam import run_steam_service
     from kobe.integrations.discord import run_discord_service
     from kobe.automation.windows_ctrl import run_windows_automation_service
+    from kobe.vision.service import run_vision_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
@@ -65,6 +66,8 @@ async def _run_all() -> None:
         tg.create_task(run_steam_service(bus, settings), name="steam")
         tg.create_task(run_discord_service(bus, settings), name="discord")
         tg.create_task(run_windows_automation_service(bus, settings), name="windows-automation")
+        # Phase 4 foundation (vision capture + backend stub)
+        tg.create_task(run_vision_service(bus, settings), name="vision")
 
 
 @app.command()
