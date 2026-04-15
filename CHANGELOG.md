@@ -6,7 +6,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
-## Phase 6 — ✨ Premium Polish · *pending commit*
+## Phase 6 — ✨ Premium Polish · [`7c4f9be`](../../commit/7c4f9be)
 
 Personas, smart-home integration, physical MuteMe button, multi-profile scaffold, richer Discord alerts, smoother HUD.
 
