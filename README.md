@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Phase%205%20Complete-00D4FF?style=for-the-badge&logo=github" />
+  <img src="https://img.shields.io/badge/Status-Phase%206%20Complete-00D4FF?style=for-the-badge&logo=github" />
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows" />
   <img src="https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia" />
   <img src="https://img.shields.io/badge/AI-Claude%20Sonnet-8A2BE2?style=for-the-badge&logo=anthropic" />
@@ -59,7 +59,7 @@ Phase 2 ──── HUD Display             ✅
 Phase 3 ──── Printer & Productivity  ✅
 Phase 4 ──── Screen Vision           ✅
 Phase 5 ──── Gesture Control         ✅
-Phase 6 ──── Premium Polish          🔲
+Phase 6 ──── Premium Polish          ✅
 Phase 7 ──── Holographic Fan         🔲
 ```
 
@@ -218,6 +218,7 @@ uv run python scripts/smoke_phase2.py   # HUD routes + WS protocol
 uv run python scripts/smoke_phase3.py   # confirmation flow + executor allowlist
 uv run python scripts/smoke_phase4.py   # vision capture + null backend + screen_inspect action
 uv run python scripts/smoke_phase5.py   # gesture classifier (mock-driven; no webcam)
+uv run python scripts/smoke_phase6.py   # personas + profiles + HA + MuteMe degradation
 
 # 5. Run the live pipeline (start your terminal as Administrator
 #    if you want the ctrl+alt+k global mute hotkey to work)

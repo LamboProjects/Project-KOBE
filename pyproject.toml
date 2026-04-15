@@ -29,6 +29,9 @@ dependencies = [
     "comtypes>=1.4",
     "mss>=9.0",
     "pillow>=10.4",
+    # Phase 6 — MuteMe Mini physical button via cython-hidapi. Prebuilt cp311
+    # Windows wheels; no driver install needed (generic HID).
+    "hidapi>=0.14",
 ]
 
 [project.optional-dependencies]

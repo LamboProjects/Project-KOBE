@@ -62,6 +62,8 @@ _EVENT_TYPES: tuple[type, ...] = (
     # Phase 5
     kevents.GestureDetected,
     kevents.WebcamStatus,
+    # Phase 6
+    kevents.ProfileChanged,
 )
 
 
@@ -113,6 +115,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     last_vision: dict[str, Any] | None = None
     last_gesture: dict[str, Any] | None = None
     last_webcam: dict[str, Any] | None = None
+    last_profile: dict[str, Any] | None = None
     outbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=256)
 
     def snapshot() -> dict[str, Any]:
@@ -125,6 +128,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
             "vision": last_vision,
             "gesture": last_gesture,
             "webcam": last_webcam,
+            "profile": last_profile,
         }
         return {"type": "HudSnapshot", "data": data, "state": state["value"]}
 
@@ -215,7 +219,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
 
     async def _consume(event_type: type, q: asyncio.Queue) -> None:
         nonlocal last_response, last_system, last_printer, last_now_playing
-        nonlocal last_vision, last_gesture, last_webcam
+        nonlocal last_vision, last_gesture, last_webcam, last_profile
         name = event_type.__name__
         while True:
             event = await q.get()
@@ -248,6 +252,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
                 last_gesture = data
             elif isinstance(event, kevents.WebcamStatus):
                 last_webcam = data
+            elif isinstance(event, kevents.ProfileChanged):
+                last_profile = data
 
             state["value"] = _derive_state(state["value"], event)
             enqueue({"type": name, "data": data, "state": state["value"]})

@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel (default)
     elevenlabs_model_id: str = "eleven_turbo_v2_5"
+    # Phase 6 persona tuning — passed verbatim into ElevenLabs `VoiceSettings`
+    # if the SDK exposes them. Stability 0..1, similarity_boost 0..1,
+    # style 0..1, use_speaker_boost bool.
+    elevenlabs_stability: float = 0.55
+    elevenlabs_similarity_boost: float = 0.75
+    elevenlabs_style: float = 0.15
+    elevenlabs_use_speaker_boost: bool = True
+    # Named persona preset the brain prepends to OpenClaw calls.
+    # "default" | "concise" | "warm" | "terse" | "excited" | custom.
+    tts_persona_profile: str = "default"
 
     # OpenAI (TTS fallback)
     openai_api_key: str = ""
@@ -162,6 +172,26 @@ class Settings(BaseSettings):
     @property
     def confirmation_no_list(self) -> list[str]:
         return [w.strip().lower() for w in self.confirmation_no_words.split(",") if w.strip()]
+
+    # Home Assistant (Phase 6 smart home)
+    homeassistant_enabled: bool = True
+    homeassistant_url: str = ""  # e.g. http://192.168.1.10:8123
+    homeassistant_token: str = ""  # long-lived access token
+    homeassistant_timeout_s: float = 10.0
+    homeassistant_verify_tls: bool = True  # flip False for self-signed LAN certs
+
+    # MuteMe Mini physical button (Phase 6)
+    muteme_enabled: bool = True
+    muteme_poll_ms: int = 20  # blocking read timeout; state-change driven, 50 Hz ceiling
+
+    # Multi-profile (Phase 6 scaffold)
+    profile_name: str = "lambert"
+    profile_label: str = "Lambert"
+    profile_config_dir: str = "config/profiles"
+
+    # Discord richer alerts (Phase 6)
+    discord_include_snapshot: bool = True  # include live progress/temps in PrinterAlert embed
+    discord_digest_interval_hours: float = 0.0  # 0 disables periodic digest
 
     # Logging
     log_level: str = "INFO"

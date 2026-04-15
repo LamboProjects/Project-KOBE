@@ -12,9 +12,11 @@ HTTP contract (OpenClaw side must implement this endpoint):
         Content-Type:  application/json
     Body (JSON):
         {
-            "agent":      str,   # settings.openclaw_agent
-            "request_id": str,   # correlation id from TranscriptReady
-            "text":       str    # user utterance
+            "agent":          str,   # settings.openclaw_agent
+            "request_id":     str,   # correlation id from TranscriptReady
+            "text":           str,   # user utterance
+            "persona_prompt": str    # optional; server may ignore. System-prompt
+                                     # prefix resolved from settings.tts_persona_profile.
         }
     Response (JSON, 200 OK):
         {
@@ -44,6 +46,7 @@ from typing import Any
 import httpx
 import structlog
 
+from kobe.brain.personas import persona_prompt
 from kobe.bus import Bus
 from kobe.config import Settings
 from kobe.events import (
@@ -100,6 +103,10 @@ async def _call_openclaw(
         "agent": settings.openclaw_agent,
         "request_id": request_id,
         "text": text,
+        # Phase 6: persona prefix is ship-and-forget — OpenClaw honors it as a
+        # system-prompt prefix if the server-side contract implements it;
+        # otherwise it's silently ignored (documented as optional).
+        "persona_prompt": persona_prompt(settings.tts_persona_profile),
     }
     try:
         resp = await client.post(url, headers=headers, json=payload)

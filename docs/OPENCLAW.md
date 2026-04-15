@@ -53,10 +53,19 @@ KOBE talks to OpenClaw over two endpoints on the same host:
 
 | Endpoint | Phase | Who calls it | Request | Response |
 |----------|-------|--------------|---------|----------|
-| `POST /v1/chat` | 1 | `src/kobe/brain/router.py` | JSON: `{ "text": "...", "session": "kobe" }` + `Authorization: Bearer` | JSON reply the TTS service speaks |
+| `POST /v1/chat` | 1 | `src/kobe/brain/router.py` | JSON: `{ "agent": "...", "request_id": "...", "text": "...", "persona_prompt": "..." }` + `Authorization: Bearer` | JSON reply the TTS service speaks |
 | `POST /v1/vision` | 4 | `src/kobe/vision/backends.py` → `OpenClawBackend` | `multipart/form-data` with a JPEG field (`image`) plus the (optionally specialist-augmented) question | JSON: `{ "ok": bool, "text": str }` — consumed verbatim by `VisionResult`/`ResponseReady` |
 
 Both calls stream back text KOBE either speaks directly or surfaces on the HUD vision panel.
+
+### `/v1/chat` request body fields
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `agent` | str | yes | `settings.openclaw_agent` (defaults to `"main"`). |
+| `request_id` | str | yes | Correlation id from the originating `TranscriptReady`. |
+| `text` | str | yes | The user utterance. |
+| `persona_prompt` | str | **optional; server may ignore** | Phase 6 persona prefix resolved from `settings.tts_persona_profile` via `src/kobe/brain/personas.py`. Presets: `default`, `concise`, `warm`, `terse`, `excited`. OpenClaw should treat this as a system-prompt prefix if supported; legacy servers that don't recognize the field should simply ignore it. |
 
 ---
 

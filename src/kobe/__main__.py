@@ -23,7 +23,24 @@ async def _run_all() -> None:
 
     import structlog
     log = structlog.get_logger("kobe")
-    log.info("startup", version_config=settings.model_dump(exclude={"openclaw_api_key", "elevenlabs_api_key", "openai_api_key"}))
+    log.info(
+        "startup",
+        version_config=settings.model_dump(
+            exclude={
+                "openclaw_api_key",
+                "elevenlabs_api_key",
+                "openai_api_key",
+                # Phase 3: Bambu LAN access code acts as an MQTT password.
+                "bambu_access_code",
+                # Phase 3: Spotify client secret is a long-lived app secret.
+                "spotify_client_secret",
+                # Phase 3: Discord webhook URL contains the posting token.
+                "discord_webhook_url",
+                # Phase 6: long-lived HA bearer token can fully control the home.
+                "homeassistant_token",
+            },
+        ),
+    )
 
     bus = Bus()
 
@@ -45,6 +62,9 @@ async def _run_all() -> None:
     from kobe.automation.windows_ctrl import run_windows_automation_service
     from kobe.vision.service import run_vision_service
     from kobe.gestures.service import run_gesture_service
+    from kobe.integrations.home_assistant import run_homeassistant_service
+    from kobe.mute.muteme import run_muteme_service
+    from kobe.profiles.manager import run_profile_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
@@ -71,6 +91,10 @@ async def _run_all() -> None:
         tg.create_task(run_vision_service(bus, settings), name="vision")
         # Phase 5 (webcam + MediaPipe gesture recognition)
         tg.create_task(run_gesture_service(bus, settings), name="gestures")
+        # Phase 6 (polish — smart home, physical button, profiles)
+        tg.create_task(run_homeassistant_service(bus, settings), name="home-assistant")
+        tg.create_task(run_muteme_service(bus, settings), name="muteme")
+        tg.create_task(run_profile_service(bus, settings), name="profiles")
 
 
 @app.command()

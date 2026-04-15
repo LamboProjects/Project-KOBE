@@ -99,28 +99,29 @@ body {
   box-shadow: 0 0 10px currentColor;
 }
 .conn-indicator[data-status="connected"] {
-  color: var(--green);
+  color: var(--cyan);
 }
 .conn-indicator[data-status="connected"] .conn-dot {
-  background: var(--green);
+  background: var(--cyan);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
 }
 .conn-indicator[data-status="connecting"] {
   color: var(--amber);
 }
 .conn-indicator[data-status="connecting"] .conn-dot {
   background: var(--amber);
-  animation: conn-blink 1s ease-in-out infinite;
+  animation: conn-pulse 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 .conn-indicator[data-status="disconnected"] {
   color: var(--red);
 }
 .conn-indicator[data-status="disconnected"] .conn-dot {
   background: var(--red);
-  animation: conn-blink 0.6s ease-in-out infinite;
+  animation: conn-pulse 1.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
-@keyframes conn-blink {
+@keyframes conn-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+  50%      { opacity: 0.55; }
 }
 
 /* =========================================================
@@ -306,13 +307,17 @@ body {
   justify-content: center;
 }
 
-/* Hide all sub-animations by default; show only the one matching state */
+/* Hide all sub-animations by default; show only the one matching state.
+   Transition props soften handoff between states (see setState in app.js). */
 .state-orb > div {
   position: absolute;
   inset: 0;
   display: none;
   align-items: center;
   justify-content: center;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 250ms ease, transform 250ms ease;
 }
 .state-panel[data-state="idle"]      .anim-idle      { display: flex; }
 .state-panel[data-state="listening"] .anim-listening { display: flex; }
@@ -392,8 +397,19 @@ body {
   border-top-color: rgba(255, 179, 71, 0.8);
   animation: think-rot 0.9s linear infinite;
 }
+/* Concentric counter-rotating arc for visual depth */
+.anim-thinking .arc-d {
+  width: 300px; height: 300px;
+  border-left-color: rgba(255, 179, 71, 0.45);
+  border-bottom-color: rgba(255, 179, 71, 0.2);
+  box-shadow: 0 0 14px rgba(255, 179, 71, 0.25);
+  animation: think-rot-rev 2.6s linear infinite;
+}
 @keyframes think-rot {
   to { transform: rotate(360deg); }
+}
+@keyframes think-rot-rev {
+  to { transform: rotate(-360deg); }
 }
 
 /* --- SPEAKING: magenta waveform bars --- */
@@ -452,12 +468,14 @@ body {
   letter-spacing: 0.35em;
   color: var(--cyan);
   text-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
-  transition: color 0.3s ease, text-shadow 0.3s ease;
+  transition: color 250ms ease, text-shadow 250ms ease,
+              opacity 250ms ease, transform 250ms ease;
 }
 .state-sub {
   font-size: 11px;
   color: var(--text-dim);
   letter-spacing: 0.3em;
+  transition: color 250ms ease, opacity 250ms ease, transform 250ms ease;
 }
 .state-panel[data-state="idle"] .state-label {
   color: var(--cyan-dim);
@@ -555,6 +573,14 @@ body {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* Applied by JS when a new transcript item is inserted at the top. */
+.transcript-list li.transcript-enter {
+  animation: transcript-enter 300ms ease-out;
+}
+@keyframes transcript-enter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* =========================================================
    Response
@@ -589,6 +615,19 @@ body {
 @keyframes resp-fade {
   from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
   to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+/* Typing cursor: appended briefly after a new response arrives. */
+.response-body.typing .response-text::after {
+  content: "\258C"; /* ▌ block cursor */
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.7);
+  animation: resp-cursor-blink 0.6s steps(1, end) infinite;
+}
+@keyframes resp-cursor-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
 
 /* =========================================================
@@ -1224,4 +1263,77 @@ body {
   }
   .state-orb { width: 260px; height: 260px; }
   .gestures-glyph { font-size: 52px; }
+}
+
+/* =========================================================
+   Reduced motion — honor prefers-reduced-motion
+   Disable orbit/pulse/flash loops; keep color-only changes.
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  /* Neutralize all declared keyframe animations. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  /* Hide purely decorative loops that rely on motion to read. */
+  .idle-ring,
+  .anim-listening .ring,
+  .anim-thinking .arc-a,
+  .anim-thinking .arc-b,
+  .anim-thinking .arc-c,
+  .anim-thinking .arc-d,
+  .vision-shimmer {
+    animation: none !important;
+  }
+
+  /* Speaking bars freeze at a single readable height rather than bouncing. */
+  .anim-speaking .bar {
+    animation: none !important;
+    height: 60px !important;
+    opacity: 0.85 !important;
+  }
+
+  /* Connection dot: no blink; stay at steady opacity — color still encodes state. */
+  .conn-indicator .conn-dot,
+  .nowplaying-live .live-dot,
+  .gestures-cam .conn-dot {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Thinking spinner becomes a static ring (color only). */
+  .anim-thinking .arc-a,
+  .anim-thinking .arc-b,
+  .anim-thinking .arc-c,
+  .anim-thinking .arc-d {
+    transform: none !important;
+  }
+
+  /* Muted/finished/failed flashes reduce to steady color. */
+  .state-panel[data-state="muted"] .state-label,
+  .printer-panel[data-stage="failed"] .printer-stage,
+  .printer-panel[data-stage="printing"] .printer-stage,
+  .printer-panel[data-stage="preparing"] .printer-stage {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Transcript / response entry effects off. */
+  .transcript-list li,
+  .transcript-list li.transcript-enter,
+  .response-text,
+  .nowplaying-active,
+  .vision-content {
+    animation: none !important;
+  }
+
+  .response-body.typing .response-text::after {
+    animation: none !important;
+    opacity: 1;
+  }
 }

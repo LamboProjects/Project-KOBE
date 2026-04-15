@@ -179,6 +179,16 @@ class GestureDetected:
 
 
 @dataclass(frozen=True, slots=True)
+class ProfileChanged:
+    """User profile was switched (e.g. Lambert → Jasmine). Downstream services
+    can re-theme, swap wake words, change TTS voice, etc. For Phase 6 scaffolding
+    the main consumer is the HUD; future profile-aware services can subscribe."""
+    name: str       # canonical profile id, e.g. "lambert"
+    label: str      # display label, e.g. "Lambert"
+    timestamp_iso: str
+
+
+@dataclass(frozen=True, slots=True)
 class WebcamStatus:
     """Periodic webcam health snapshot for the HUD."""
     connected: bool
@@ -231,4 +241,5 @@ Event = (
     | VisionResult
     | GestureDetected
     | WebcamStatus
+    | ProfileChanged
 )

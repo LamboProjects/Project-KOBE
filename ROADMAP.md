@@ -93,19 +93,21 @@
 
 ---
 
-## Phase 6 — ✨ Premium Polish
+## Phase 6 — ✨ Premium Polish  ✅
 
 **Goal:** Make KOBE feel cohesive, intentional, and impressive.
 
 > *Success: KOBE feels polished and professional, not experimental.*
 
-- [ ] ElevenLabs voice tuning and persona refinement
-- [ ] Smoother HUD animations and state transitions
-- [ ] Improved command handoff and confirmation flows
-- [ ] Better Discord integration (richer alerts)
-- [ ] Smart home hooks — smart plug → lights
-- [ ] Physical mute button (MuteMe Mini)
-- [ ] Multi-profile architecture prep (future: Jasmine)
+- [x] ElevenLabs voice tuning — `stability` / `similarity_boost` / `style` / `use_speaker_boost` threaded into `text_to_speech.convert(voice_settings=...)` with graceful SDK-version fallback
+- [x] Persona refinement — `src/kobe/brain/personas.py` exposes 5 presets (default / concise / warm / terse / excited) + any other string is shipped verbatim as a custom prompt; `persona_prompt` field added to OpenClaw request body (optional, server may ignore)
+- [x] Smoother HUD animations and state transitions — 250 ms fade/scale handoff on state orb label+sub with timer de-dup for rapid transitions, concentric thinking-arc spinner, `prefers-reduced-motion` honored, gentler connection-dot pulse, transcript fade-in, response typing-cursor
+- [x] Improved command handoff and confirmation flows — confirmation banner + result flash already there from Phase 3; Phase 6 adds the live-profile chip so the user always sees which profile is active
+- [x] Richer Discord alerts — embeds now carry live Progress / Remaining / Nozzle / Bed / Stage fields plus a 20-char ASCII progress bar; inline-drain of `PrinterStatus` in the alert loop prevents stale-snapshot enrichment; optional periodic digest every N hours; 429 retry-after honored (header seconds vs body ms heuristic split); state reset on service restart
+- [x] Smart home hooks — `src/kobe/integrations/home_assistant.py` with REST actions `home_light_on/off/toggle`, `home_switch_on/off`, `home_scene_activate`, `home_state`, plus a generic `home_*` pass-through. Stub replies with a clear `ActionCompleted(ok=False, ...)` when HA is unconfigured so the user hears a real failure, not silence
+- [x] Physical mute button — `src/kobe/mute/muteme.py` enumerates all four MuteMe Mini VID/PID pairs, picks the input-capable interface, blocking-read in a producer thread, LED states (slow-pulse cyan on startup, solid red on mute, off on shutdown), full bus-mirror with idempotent echo-dedupe, best-effort LED writes that never crash the TaskGroup, `stop_flag` set on read failure so an unplug doesn't emit a phantom toggle
+- [x] Multi-profile scaffold — `src/kobe/profiles/manager.py` with a tiny inline dotenv parser (no `python-dotenv` dep), `config/profiles/<name>.env` per profile, actions `profile_switch` / `profile_list` / `profile_show`, `ProfileChanged` event picked up by HUD brand chip, stable `repo-relative` path resolution. Overrides are parsed + stored today; wiring them back into live Settings is a Phase 7+ follow-up
+- [x] Security hygiene — startup config dump now excludes `bambu_access_code`, `spotify_client_secret`, `discord_webhook_url`, and `homeassistant_token` in addition to the Phase 1 key set
 
 ---
 

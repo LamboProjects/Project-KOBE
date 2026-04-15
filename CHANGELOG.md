@@ -6,6 +6,39 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## Phase 6 — ✨ Premium Polish · *pending commit*
+
+Personas, smart-home integration, physical MuteMe button, multi-profile scaffold, richer Discord alerts, smoother HUD.
+
+### Added
+- `src/kobe/brain/personas.py` — 5 named presets (`default`, `concise`, `warm`, `terse`, `excited`); any other string ships verbatim as a custom prompt. `persona_prompt` field added to OpenClaw POST body.
+- `src/kobe/integrations/home_assistant.py` — REST integration with actions `home_light_on/off/toggle`, `home_switch_on/off`, `home_scene_activate`, `home_state`, plus a generic `home_*` pass-through. Unconfigured-state stub returns a clear `ActionCompleted(ok=False, …)` instead of a silent hang.
+- `src/kobe/mute/muteme.py` — MuteMe Mini over cython-hidapi. Enumerates all 4 known VID/PID pairs, prefers input-capable interface (usage_page 0x01/0x0C/vendor), blocking-read producer thread, LED feedback, bus-mirror with idempotent echo-dedupe. Best-effort LED writes can't crash the TaskGroup; `stop_flag` set on read failure so an unplug doesn't emit a phantom toggle.
+- `src/kobe/profiles/manager.py` — `Profile` dataclass + `run_profile_service`. Tiny inline dotenv parser (no `python-dotenv` dep). Actions: `profile_switch`, `profile_list`, `profile_show`. Emits `ProfileChanged` on startup (with a 50 ms yield so the HUD has time to subscribe) and on every switch. Repo-relative path resolution so profile files are found regardless of CWD.
+- `ProfileChanged` event. HUD brand panel now shows the active profile as a `#profile-tag` chip with live updates + snapshot hydration.
+- HUD polish pass: 250 ms fade/scale handoff on state-orb label+sub with timer de-dup, concentric thinking-arc spinner, `prefers-reduced-motion` media query, gentler connection-dot pulse, transcript fade-in, response typing cursor.
+- `scripts/smoke_phase6.py` — persona registry + custom-prompt passthrough, profile startup + `profile_show`, HA unconfigured degradation, MuteMe no-device degradation.
+
+### Changed
+- TTS (`src/kobe/tts/service.py`) — threads `stability` / `similarity_boost` / `style` / `use_speaker_boost` into `text_to_speech.convert(voice_settings=...)`, with graceful `TypeError` fallback for older ElevenLabs SDKs.
+- Brain (`src/kobe/brain/router.py`) — adds optional `persona_prompt` field to the OpenClaw chat request body. Documented in `docs/OPENCLAW.md`.
+- Discord (`src/kobe/integrations/discord.py`) — richer `PrinterAlert` embed with live Progress / Remaining / Nozzle / Bed / Stage fields and a 20-char ASCII progress bar; inline-drain of `PrinterStatus` in the alert loop closes the cross-task ordering race so alerts never carry the previous job's snapshot; optional periodic digest; 429 retry-after honoured (header treated as seconds regardless of magnitude; body keeps the `>120 → ms` legacy heuristic; both clamped to 300 s). Cache reset on service start.
+- `__main__.py` — startup config dump now excludes `bambu_access_code`, `spotify_client_secret`, `discord_webhook_url`, and `homeassistant_token` alongside the existing key fields.
+
+### Fixed (during the Codex review loop)
+- Profile switch double-speak (brain's model text + manager's own TTS) — the manager no longer publishes `ResponseReady`; the brain's reply is the single source of truth.
+- Persona fallback regressions from the custom-prompt change — any non-preset string is now passed through verbatim (logged at INFO), including short ones like `snarky`; only empty/None silently falls back to `default`.
+- MuteMe phantom mute on unplug — reader thread now sets `stop_flag` before waking the async side, so the wake-up can no longer be mistaken for a button press.
+- Discord stale-snapshot enrichment — alert and status are now consumed in the same task with inline drain.
+- HA bearer token appearing in startup log — excluded from `model_dump`.
+
+### Follow-ups noted
+- Wire profile overrides back into live Settings (e.g. swap wake model / voice / persona on `profile_switch` without a restart).
+- Subscribe to HA's `/api/websocket` for live state push into the HUD.
+- Per-alert role-mention map in Discord settings (`@printer-crit` on `failed`).
+
+---
+
 ## Phase 5 — 👋 Gesture Control · [`16fc7dd`](../../commit/16fc7dd)
 
 Real-time webcam gesture recognition wired to HUD navigation.

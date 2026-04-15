@@ -105,7 +105,10 @@ hud_backend updates display
 | `gesture_service` | `src/kobe/gestures/service.py` | Bridges camera + MediaPipe + classifier to bus, mute-aware, maps gestures to HUD nav actions, telemetry every 2 s | 5 | ✅ |
 | `gesture_camera` | `src/kobe/gestures/camera.py` | cv2 + MediaPipe Tasks `GestureRecognizer` LIVE_STREAM, dedicated producer thread, asyncio bridge via `loop.call_soon_threadsafe`, auto-downloaded model file, FPS + connectivity health tracking | 5 | ✅ |
 | `gesture_classifier` | `src/kobe/gestures/classifier.py` | Pure deque-based static + swipe + shake recognizers with per-name cooldowns, no-hand reset, held-pose-no-refire, raw-label preservation, shake-suppresses-swipe | 5 | ✅ |
-| `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
+| `profile_manager` | `src/kobe/profiles/manager.py` | Multi-profile scaffold. Tiny inline dotenv parser loads `config/profiles/<name>.env` overrides; actions `profile_switch` / `profile_list` / `profile_show`; emits `ProfileChanged`. Overrides stored, not yet live-applied to Settings (Phase 7+). | 6 | ✅ |
+| `home_assistant` | `src/kobe/integrations/home_assistant.py` | REST integration. Actions `home_light_on/off/toggle`, `home_switch_on/off`, `home_scene_activate`, `home_state`, generic `home_*` pass-through. Unconfigured stub replies with clear failure instead of silent hang. | 6 | ✅ |
+| `muteme` | `src/kobe/mute/muteme.py` | MuteMe Mini USB button via cython-hidapi. Enumerates 4 VID/PID pairs, picks input-capable interface, blocking-read producer thread, LED mirrors mute state. Idempotent bus-mirror, best-effort LED writes. | 6 | ✅ |
+| `personas` | `src/kobe/brain/personas.py` | 5 named presets + custom-prompt passthrough. `persona_prompt` field added to OpenClaw POST body (optional). | 6 | ✅ |
 
 ## Event catalogue (Phases 1–5)
 
@@ -130,6 +133,7 @@ hud_backend updates display
 | `VisionResult` | vision_service | hud (relay) |
 | `GestureDetected` | gesture_service | hud (cache + relay) |
 | `WebcamStatus` | gesture_service | hud (cache + relay) |
+| `ProfileChanged` | profile_manager (startup + switch) | hud (cache + relay) |
 
 ---
 

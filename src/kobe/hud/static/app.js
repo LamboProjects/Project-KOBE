@@ -1,5 +1,5 @@
 /* =========================================================
-   KOBE HUD — Phase 2 frontend controller
+   KOBE HUD — Phase 6 frontend controller
    Vanilla JS. No build step.
    ========================================================= */
 (function () {
@@ -15,6 +15,8 @@
     muted:     { label: "MUTED",         sub: "microphone disabled"},
   };
   const TRANSCRIPT_MAX = 8;
+  const TRANSCRIPT_ENTER_MS = 300;
+  const RESPONSE_CURSOR_MS = 1500;
   const RECONNECT_SCHEDULE = [1000, 2000, 4000, 8000, 15000];
   const VALID_PRINTER_STAGES = new Set([
     "idle", "preparing", "printing", "paused", "finished", "failed", "unknown",
@@ -97,6 +99,8 @@
     gesturesFrames:    $("gestures-frames"),
     gesturesFps:       $("gestures-fps"),
     gesturesCamLabel:  $("gestures-cam-label"),
+    // Profile
+    profileTag:        $("profile-tag"),
   };
 
   // ---------- Clock (the only JS-driven poll) ----------
@@ -125,15 +129,47 @@
   // ---------- State ----------
   let currentState = "idle";
   const transcript = []; // newest first
+  let stateSwapTimer = null;
 
   function setState(next) {
     if (!VALID_STATES.has(next)) return;
     if (next === currentState) return;
     currentState = next;
-    el.statePanel.setAttribute("data-state", next);
-    const meta = STATE_LABELS[next];
-    el.stateLabel.textContent = meta.label;
-    el.stateSub.textContent = meta.sub;
+
+    // Soft handoff: briefly fade/scale the label + sub, swap content, then
+    // settle. The CSS transition on .state-label/.state-sub handles the
+    // actual tween (see style.css — 250ms).
+    //
+    // Cancel any pending swap from a previous state transition. Without this,
+    // a rapid `listening → thinking → speaking` burst stacks timers and can
+    // briefly repaint the panel with a stale state after the latest one has
+    // already been recorded in `currentState`.
+    if (stateSwapTimer) {
+      clearTimeout(stateSwapTimer);
+      stateSwapTimer = null;
+    }
+
+    const label = el.stateLabel;
+    const sub = el.stateSub;
+
+    label.style.opacity = "0";
+    label.style.transform = "scale(0.96)";
+    sub.style.opacity = "0";
+    sub.style.transform = "scale(0.98)";
+
+    stateSwapTimer = setTimeout(function () {
+      // Always paint the most-recent state — belt-and-suspenders with the
+      // cancel above, in case a timer slipped through.
+      const liveMeta = STATE_LABELS[currentState] || STATE_LABELS.idle;
+      el.statePanel.setAttribute("data-state", currentState);
+      label.textContent = liveMeta.label;
+      sub.textContent = liveMeta.sub;
+      label.style.opacity = "";
+      label.style.transform = "";
+      sub.style.opacity = "";
+      sub.style.transform = "";
+      stateSwapTimer = null;
+    }, 130);
   }
 
   // ---------- Transcript ----------
@@ -146,10 +182,10 @@
     if (!text) return;
     transcript.unshift({ text: String(text), time: formatTime(tsMs) });
     while (transcript.length > TRANSCRIPT_MAX) transcript.pop();
-    renderTranscript();
+    renderTranscript(true);
   }
 
-  function renderTranscript() {
+  function renderTranscript(animateTop) {
     const list = el.transcriptList;
     list.innerHTML = "";
     if (transcript.length === 0) {
@@ -160,6 +196,7 @@
       el.transcriptCount.textContent = "0 / " + TRANSCRIPT_MAX;
       return;
     }
+    let firstLi = null;
     for (const item of transcript) {
       const li = document.createElement("li");
       const t = document.createElement("span");
@@ -171,11 +208,21 @@
       li.appendChild(t);
       li.appendChild(x);
       list.appendChild(li);
+      if (firstLi === null) firstLi = li;
     }
     el.transcriptCount.textContent = transcript.length + " / " + TRANSCRIPT_MAX;
+
+    if (animateTop && firstLi) {
+      firstLi.classList.add("transcript-enter");
+      setTimeout(function () {
+        firstLi.classList.remove("transcript-enter");
+      }, TRANSCRIPT_ENTER_MS);
+    }
   }
 
   // ---------- Response ----------
+  let responseCursorTimer = null;
+
   function setResponse(text, tsMs) {
     if (!text) return;
     const body = el.responseBody;
@@ -185,6 +232,14 @@
     div.textContent = String(text);
     body.appendChild(div);
     el.responseMeta.textContent = formatTime(tsMs);
+
+    // Brief "just-typed" cursor to suggest KOBE wrote the reply.
+    if (responseCursorTimer) clearTimeout(responseCursorTimer);
+    body.classList.add("typing");
+    responseCursorTimer = setTimeout(function () {
+      body.classList.remove("typing");
+      responseCursorTimer = null;
+    }, RESPONSE_CURSOR_MS);
   }
 
   // ---------- System ----------
@@ -514,6 +569,17 @@
     confirmFadeTimer = setTimeout(hideConfirm, CONFIRM_RESULT_FADE_MS);
   }
 
+  // ---------- Profile ----------
+  function setProfile(data) {
+    if (!data || typeof data !== "object") return;
+    const raw = (typeof data.label === "string" && data.label)
+      ? data.label
+      : (typeof data.name === "string" && data.name)
+        ? data.name
+        : "LAMBERT";
+    el.profileTag.textContent = String(raw).toUpperCase();
+  }
+
   // ---------- Message dispatch ----------
   function handleMessage(msg) {
     if (!msg || typeof msg !== "object") return;
@@ -547,6 +613,7 @@
         // Snapshot may or may not carry these — graceful no-op when absent.
         if (data.webcam) onWebcamStatus(data.webcam);
         if (data.gesture) onGestureDetected(data.gesture);
+        if (data.profile) setProfile(data.profile);
         break;
       }
 
@@ -596,6 +663,10 @@
 
       case "WebcamStatus":
         onWebcamStatus(data);
+        break;
+
+      case "ProfileChanged":
+        setProfile(data);
         break;
 
       case "MuteToggled":

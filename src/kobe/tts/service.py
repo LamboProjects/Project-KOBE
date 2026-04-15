@@ -176,13 +176,35 @@ async def _speak_elevenlabs(
 
     client = ElevenLabs(api_key=settings.elevenlabs_api_key)
 
+    # Phase 6: persona voice tuning. Post-rewrite `elevenlabs>=1.0` accepts a
+    # `voice_settings` dict directly on `.convert(...)`. Older / mismatched SDK
+    # versions raise TypeError on the kwarg — we catch that and retry without
+    # voice_settings so the TTS never hard-fails because of persona tuning.
+    voice_settings = {
+        "stability": settings.elevenlabs_stability,
+        "similarity_boost": settings.elevenlabs_similarity_boost,
+        "style": settings.elevenlabs_style,
+        "use_speaker_boost": settings.elevenlabs_use_speaker_boost,
+    }
+
     def _collect() -> bytes:
-        iterator = client.text_to_speech.convert(
-            voice_id=settings.elevenlabs_voice_id,
-            model_id=settings.elevenlabs_model_id,
-            text=text,
-            output_format="pcm_16000",
-        )
+        try:
+            iterator = client.text_to_speech.convert(
+                voice_id=settings.elevenlabs_voice_id,
+                model_id=settings.elevenlabs_model_id,
+                text=text,
+                output_format="pcm_16000",
+                voice_settings=voice_settings,
+            )
+        except TypeError as exc:
+            # SDK version doesn't accept `voice_settings` or one of its keys.
+            log.debug("elevenlabs_voice_settings_unsupported", error=str(exc))
+            iterator = client.text_to_speech.convert(
+                voice_id=settings.elevenlabs_voice_id,
+                model_id=settings.elevenlabs_model_id,
+                text=text,
+                output_format="pcm_16000",
+            )
         chunks: list[bytes] = []
         for chunk in iterator:
             if chunk:
