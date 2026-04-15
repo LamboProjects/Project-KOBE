@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Phase%202%20Complete-00D4FF?style=for-the-badge&logo=github" />
+  <img src="https://img.shields.io/badge/Status-Phase%203%20Complete-00D4FF?style=for-the-badge&logo=github" />
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows" />
   <img src="https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia" />
   <img src="https://img.shields.io/badge/AI-Claude%20Sonnet-8A2BE2?style=for-the-badge&logo=anthropic" />
@@ -41,8 +41,10 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 | 🧠 **Intelligence** | OpenClaw HTTP (echo stub when unconfigured) | ✅ Built |
 | 🔊 **Text-to-Speech** | ElevenLabs primary, OpenAI TTS fallback, barge-in | ✅ Built |
 | 🖥️ **HUD** | FastAPI + WebSocket + vanilla-JS dashboard @ `127.0.0.1:8765` | ✅ Built |
-| 🖨️ **Printer** | Bambu Lab P1S deep integration | 🔲 Planned (Phase 3) |
-| 🎵 **Media** | Spotify + Steam control | 🔲 Planned (Phase 3) |
+| 🖨️ **Printer** | Bambu Lab P1S over LAN MQTT (paho-mqtt v2) with HUD widget + Discord alerts | ✅ Built |
+| 🎵 **Media** | Spotify (spotipy, play/pause/next/prev/vol + now-playing) and Steam `steam://` launcher | ✅ Built |
+| 🖥️ **Windows** | System volume via pycaw, window focus/min/max via pygetwindow, show-desktop | ✅ Built |
+| 🛑 **Safety** | Confirmation flow for destructive actions (yes/no voice challenge before cancel/pause) | ✅ Built |
 | 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned (Phase 5) |
 | 👁️ **Screen Vision** | On-demand screen understanding | 🔲 Planned (Phase 4) |
 | ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned (Phase 7) |
@@ -54,7 +56,7 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 ```
 Phase 1 ──── Core Voice MVP          ✅
 Phase 2 ──── HUD Display             ✅
-Phase 3 ──── Printer & Productivity  🔲
+Phase 3 ──── Printer & Productivity  ✅
 Phase 4 ──── Screen Vision           🔲
 Phase 5 ──── Gesture Control         🔲
 Phase 6 ──── Premium Polish          🔲
@@ -201,6 +203,7 @@ cp config/.env.example config/.env
 # 4. Smoke tests (no API keys / mic / speakers required)
 uv run python scripts/smoke_phase1.py   # brain → tts → actions path
 uv run python scripts/smoke_phase2.py   # HUD routes + WS protocol
+uv run python scripts/smoke_phase3.py   # confirmation flow + executor allowlist
 
 # 5. Run the live pipeline (start your terminal as Administrator
 #    if you want the ctrl+alt+k global mute hotkey to work)

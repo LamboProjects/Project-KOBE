@@ -40,20 +40,20 @@
 
 ---
 
-## Phase 3 — 🖨️ Productivity & Printer Integration
+## Phase 3 — 🖨️ Productivity & Printer Integration  ✅
 
 **Goal:** Make KOBE materially useful in real daily workflows.
 
 > *Success: KOBE is genuinely part of daily printing and desktop work.*
 
-- [ ] Bambu Lab P1S dashboard on HUD
-- [ ] Voice queries for print state (`how's my print doing?`)
-- [ ] Print completed / failed alerts via voice + Discord
-- [ ] Pause / resume / cancel print with spoken confirmation
-- [ ] App automation improvements (window management, volume, etc.)
-- [ ] Spotify control (play, pause, next, volume, playlists)
-- [ ] Steam game launch by voice
-- [ ] Better desktop action support
+- [x] Bambu Lab P1S dashboard on HUD (live progress / stage / temps / connection)
+- [x] Voice queries for print state (`bambu_status` action returns a TTS-ready summary)
+- [x] Print completed / failed alerts via Discord webhook (dedup'd, color-coded)
+- [x] Pause / resume / cancel print with spoken confirmation (destructive actions route through `ConfirmationRequested` → TTS prompt → STT yes/no)
+- [x] App automation improvements — system volume via pycaw, window focus/minimize/maximize via pygetwindow, show-desktop via win+d
+- [x] Spotify control (play, pause, next, previous, volume) with now-playing HUD panel
+- [x] Steam game launch by voice (`steam://` URI via `steam_launch_game` + alias map)
+- [x] Action executor split: generic (open_app/url/noop) stays central, integrations own their own action namespaces — no double-dispatch, no phantom failures
 
 ---
 

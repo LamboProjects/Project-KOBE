@@ -50,6 +50,12 @@ _EVENT_TYPES: tuple[type, ...] = (
     kevents.InterruptRequested,
     kevents.MuteToggled,
     kevents.SystemStatus,
+    # Phase 3
+    kevents.PrinterStatus,
+    kevents.PrinterAlert,
+    kevents.NowPlayingChanged,
+    kevents.ConfirmationRequested,
+    kevents.ConfirmationResult,
 )
 
 
@@ -96,6 +102,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     transcript_cache: deque[dict[str, Any]] = deque(maxlen=_MAX_TRANSCRIPT_CACHE)
     last_response: dict[str, Any] | None = None
     last_system: dict[str, Any] | None = None
+    last_printer: dict[str, Any] | None = None
+    last_now_playing: dict[str, Any] | None = None
     outbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=256)
 
     def snapshot() -> dict[str, Any]:
@@ -103,6 +111,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
             "transcript": list(transcript_cache),
             "response": last_response,
             "system": last_system,
+            "printer": last_printer,
+            "now_playing": last_now_playing,
         }
         return {"type": "HudSnapshot", "data": data, "state": state["value"]}
 
@@ -192,7 +202,7 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     ]
 
     async def _consume(event_type: type, q: asyncio.Queue) -> None:
-        nonlocal last_response, last_system
+        nonlocal last_response, last_system, last_printer, last_now_playing
         name = event_type.__name__
         while True:
             event = await q.get()
@@ -209,6 +219,10 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
                 last_response = {"text": event.text, "request_id": event.request_id}
             elif isinstance(event, kevents.SystemStatus):
                 last_system = data
+            elif isinstance(event, kevents.PrinterStatus):
+                last_printer = data
+            elif isinstance(event, kevents.NowPlayingChanged):
+                last_now_playing = data
 
             state["value"] = _derive_state(state["value"], event)
             enqueue({"type": name, "data": data, "state": state["value"]})

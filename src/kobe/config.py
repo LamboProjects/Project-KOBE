@@ -84,6 +84,35 @@ class Settings(BaseSettings):
     # System status polling
     system_status_interval_s: float = 2.0
 
+    # Bambu Lab P1S (LAN MQTT)
+    bambu_host: str = ""  # printer IP on the local network
+    bambu_serial: str = ""  # printer serial (printed on the label under the bed)
+    bambu_access_code: str = ""  # LAN access code from the printer UI
+    bambu_poll_interval_s: float = 5.0
+    bambu_enabled: bool = True
+
+    # Spotify
+    spotify_client_id: str = ""
+    spotify_client_secret: str = ""
+    spotify_redirect_uri: str = "http://127.0.0.1:8888/callback"
+    spotify_poll_interval_s: float = 5.0
+
+    # Discord alerts
+    discord_webhook_url: str = ""
+
+    # Confirmation flow
+    confirmation_timeout_s: float = 12.0
+    confirmation_yes_words: str = "yes,yeah,yep,confirm,confirmed,do it,go ahead,sure"
+    confirmation_no_words: str = "no,nope,cancel,stop,nevermind,never mind,abort"
+
+    @property
+    def confirmation_yes_list(self) -> list[str]:
+        return [w.strip().lower() for w in self.confirmation_yes_words.split(",") if w.strip()]
+
+    @property
+    def confirmation_no_list(self) -> list[str]:
+        return [w.strip().lower() for w in self.confirmation_no_words.split(",") if w.strip()]
+
     # Logging
     log_level: str = "INFO"
 

@@ -16,6 +16,12 @@
   };
   const TRANSCRIPT_MAX = 8;
   const RECONNECT_SCHEDULE = [1000, 2000, 4000, 8000, 15000];
+  const VALID_PRINTER_STAGES = new Set([
+    "idle", "preparing", "printing", "paused", "finished", "failed", "unknown",
+  ]);
+  const PRINTER_FILENAME_MAX = 40;
+  const CONFIRM_SAFETY_TIMEOUT_MS = 15000;
+  const CONFIRM_RESULT_FADE_MS = 2200;
 
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
@@ -38,6 +44,30 @@
     sysFgFull:       $("system-fg-full"),
     connIndicator:   $("conn-indicator"),
     connLabel:       $("conn-label"),
+    // Printer
+    printerPanel:    $("printer-panel"),
+    printerStage:    $("printer-stage"),
+    printerFile:     $("printer-file"),
+    printerProgVal:  $("printer-progress-value"),
+    printerProgFill: $("printer-progress-fill"),
+    printerEta:      $("printer-eta"),
+    printerTemps:    $("printer-temps"),
+    printerConnLbl:  $("printer-conn-label"),
+    // Now playing
+    npPanel:         $("nowplaying-panel"),
+    npPlaceholder:   $("nowplaying-placeholder"),
+    npActive:        $("nowplaying-active"),
+    npTrack:         $("np-track"),
+    npArtist:        $("np-artist"),
+    npAlbum:         $("np-album"),
+    npProgFill:      $("np-progress-fill"),
+    npElapsed:       $("np-elapsed"),
+    npDuration:      $("np-duration"),
+    npLiveLabel:     $("nowplaying-live-label"),
+    // Confirmation banner
+    confirmBanner:   $("confirm-banner"),
+    confirmPrompt:   $("confirm-prompt"),
+    confirmResult:   $("confirm-result"),
   };
 
   // ---------- Clock (the only JS-driven poll) ----------
@@ -151,6 +181,140 @@
     }
   }
 
+  // ---------- Printer ----------
+  function truncate(s, max) {
+    if (!s) return "";
+    s = String(s);
+    return s.length > max ? s.slice(0, max - 1) + "…" : s;
+  }
+
+  function formatRemaining(minutesAny) {
+    if (typeof minutesAny !== "number" || !isFinite(minutesAny) || minutesAny <= 0) {
+      return "—";
+    }
+    const total = Math.max(0, Math.round(minutesAny * 60));
+    const mm = Math.floor(total / 60);
+    const ss = total % 60;
+    return pad(mm) + ":" + pad(ss);
+  }
+
+  function setPrinter(data) {
+    if (!data || typeof data !== "object") return;
+
+    if (typeof data.connected === "boolean") {
+      el.printerPanel.setAttribute("data-connected", data.connected ? "true" : "false");
+      el.printerConnLbl.textContent = data.connected ? "ONLINE" : "OFFLINE";
+    }
+
+    let stage = typeof data.stage === "string" ? data.stage.toLowerCase() : "unknown";
+    if (!VALID_PRINTER_STAGES.has(stage)) stage = "unknown";
+    el.printerPanel.setAttribute("data-stage", stage);
+    el.printerStage.textContent = stage.toUpperCase();
+
+    if (typeof data.progress_pct === "number") {
+      const pct = Math.max(0, Math.min(100, data.progress_pct));
+      el.printerProgVal.textContent = pct.toFixed(0) + "%";
+      el.printerProgFill.style.width = pct + "%";
+    }
+
+    // Remaining: idle → em-dash.
+    if (stage === "idle" || stage === "finished" || stage === "unknown") {
+      el.printerEta.textContent = "—";
+    } else {
+      el.printerEta.textContent = formatRemaining(data.remaining_minutes);
+    }
+
+    const nozzle = (typeof data.nozzle_temp_c === "number") ? Math.round(data.nozzle_temp_c) : null;
+    const bed    = (typeof data.bed_temp_c === "number")    ? Math.round(data.bed_temp_c)    : null;
+    if (nozzle !== null || bed !== null) {
+      el.printerTemps.textContent =
+        (nozzle !== null ? nozzle + "°C" : "—°C") +
+        " / " +
+        (bed !== null ? bed + "°C" : "—°C");
+    }
+
+    if (typeof data.filename === "string") {
+      el.printerFile.textContent = data.filename ? truncate(data.filename, PRINTER_FILENAME_MAX) : "— no job —";
+    }
+  }
+
+  // ---------- Now playing ----------
+  function formatMs(ms) {
+    if (typeof ms !== "number" || !isFinite(ms) || ms < 0) return "0:00";
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ":" + pad(s);
+  }
+
+  function setNowPlaying(data) {
+    if (!data || typeof data !== "object") return;
+    const playing = !!data.is_playing;
+    el.npPanel.setAttribute("data-playing", playing ? "true" : "false");
+    el.npLiveLabel.textContent = playing ? "LIVE" : "IDLE";
+
+    if (!playing) {
+      el.npActive.hidden = true;
+      el.npPlaceholder.style.display = "";
+      return;
+    }
+
+    el.npActive.hidden = false;
+    el.npPlaceholder.style.display = "none";
+
+    el.npTrack.textContent = data.track ? String(data.track) : "—";
+    el.npArtist.textContent = data.artist ? String(data.artist) : "—";
+    el.npAlbum.textContent = data.album ? String(data.album) : "";
+
+    const progMs = (typeof data.progress_ms === "number") ? data.progress_ms : 0;
+    const durMs  = (typeof data.duration_ms === "number" && data.duration_ms > 0) ? data.duration_ms : 0;
+    const pct = durMs > 0 ? Math.max(0, Math.min(100, (progMs / durMs) * 100)) : 0;
+    el.npProgFill.style.width = pct + "%";
+    el.npElapsed.textContent = formatMs(progMs);
+    el.npDuration.textContent = formatMs(durMs);
+  }
+
+  // ---------- Confirmation banner ----------
+  let confirmActiveId = null;
+  let confirmSafetyTimer = null;
+  let confirmFadeTimer = null;
+
+  function clearConfirmTimers() {
+    if (confirmSafetyTimer) { clearTimeout(confirmSafetyTimer); confirmSafetyTimer = null; }
+    if (confirmFadeTimer)   { clearTimeout(confirmFadeTimer);   confirmFadeTimer = null; }
+  }
+
+  function hideConfirm() {
+    clearConfirmTimers();
+    confirmActiveId = null;
+    el.confirmBanner.setAttribute("data-status", "hidden");
+    el.confirmBanner.setAttribute("aria-hidden", "true");
+    el.confirmResult.textContent = "";
+  }
+
+  function showConfirmPrompt(data) {
+    if (!data || typeof data !== "object") return;
+    clearConfirmTimers();
+    confirmActiveId = data.request_id || null;
+    el.confirmPrompt.textContent = String(data.prompt || "Confirm?");
+    el.confirmResult.textContent = "";
+    el.confirmBanner.setAttribute("data-status", "prompt");
+    el.confirmBanner.setAttribute("aria-hidden", "false");
+    // Safety auto-clear.
+    confirmSafetyTimer = setTimeout(hideConfirm, CONFIRM_SAFETY_TIMEOUT_MS);
+  }
+
+  function showConfirmResult(data) {
+    if (!data || typeof data !== "object") return;
+    // Only react if there's an active prompt (or one just expired but we got a tardy result).
+    clearConfirmTimers();
+    const confirmed = !!data.confirmed;
+    el.confirmResult.textContent = confirmed ? "CONFIRMED" : "DENIED";
+    el.confirmBanner.setAttribute("data-status", confirmed ? "confirmed" : "denied");
+    el.confirmBanner.setAttribute("aria-hidden", "false");
+    confirmFadeTimer = setTimeout(hideConfirm, CONFIRM_RESULT_FADE_MS);
+  }
+
   // ---------- Message dispatch ----------
   function handleMessage(msg) {
     if (!msg || typeof msg !== "object") return;
@@ -178,6 +342,8 @@
           setResponse(data.response.text, data.response.ts);
         }
         if (data.system) setSystem(data.system);
+        if (data.printer) setPrinter(data.printer);
+        if (data.now_playing) setNowPlaying(data.now_playing);
         break;
       }
 
@@ -191,6 +357,26 @@
 
       case "SystemStatus":
         setSystem(data);
+        break;
+
+      case "PrinterStatus":
+        setPrinter(data);
+        break;
+
+      case "PrinterAlert":
+        // Purely informational for now — stage updates arrive via PrinterStatus.
+        break;
+
+      case "NowPlayingChanged":
+        setNowPlaying(data);
+        break;
+
+      case "ConfirmationRequested":
+        showConfirmPrompt(data);
+        break;
+
+      case "ConfirmationResult":
+        showConfirmResult(data);
         break;
 
       case "MuteToggled":

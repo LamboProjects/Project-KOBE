@@ -23,6 +23,10 @@ dependencies = [
     "psutil>=6.1",
     "pygetwindow>=0.0.9",
     "websockets>=13",
+    "paho-mqtt>=2.1",
+    "spotipy>=2.24",
+    "pycaw>=20240210",
+    "comtypes>=1.4",
 ]
 
 [project.scripts]

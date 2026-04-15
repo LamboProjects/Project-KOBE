@@ -19,7 +19,17 @@ HTTP contract (OpenClaw side must implement this endpoint):
     Response (JSON, 200 OK):
         {
             "text":   str,
-            "action": {"name": str, "params": dict} | null
+            "action": {
+                "name":                  str,
+                "params":                dict,
+                # Optional. When true OR when the name is in the built-in
+                # destructive allowlist, we publish a `ConfirmationRequested`
+                # instead of an `ActionRequested` — the confirmation service
+                # will speak the prompt and listen for yes/no before the real
+                # dispatch.
+                "requires_confirmation": bool,   # optional
+                "prompt":                str     # optional, TTS reads this
+            } | null
         }
 
 Failure modes (timeout, HTTP >= 400, network error, bad JSON) are logged and
@@ -36,11 +46,30 @@ import structlog
 
 from kobe.bus import Bus
 from kobe.config import Settings
-from kobe.events import ActionRequested, ResponseReady, TranscriptReady
+from kobe.events import (
+    ActionRequested,
+    ConfirmationRequested,
+    ResponseReady,
+    TranscriptReady,
+)
 
 log = structlog.get_logger(__name__)
 
 FALLBACK_TEXT = "I can't reach my brain right now."
+
+# Built-in destructive-action allowlist — actions named here always route through
+# the confirmation manager, even if the brain response doesn't set
+# `requires_confirmation: true`. Integrations can grow this list over time.
+_DESTRUCTIVE_ACTIONS: frozenset[str] = frozenset({
+    "bambu_cancel_print",
+    "bambu_pause_print",
+})
+
+# Default prompt used when the brain didn't supply one.
+_DEFAULT_PROMPTS: dict[str, str] = {
+    "bambu_cancel_print": "Cancel the print. Confirm?",
+    "bambu_pause_print": "Pause the print. Confirm?",
+}
 
 
 def _is_stub_mode(settings: Settings) -> bool:
@@ -125,10 +154,33 @@ async def _handle_transcript(
         name = action.get("name")
         params = action.get("params", {})
         if isinstance(name, str) and name and isinstance(params, dict):
-            log.info("action_dispatch", request_id=event.request_id, action=name)
-            await bus.publish(
-                ActionRequested(request_id=event.request_id, action=name, params=params)
+            requires_confirmation = (
+                bool(action.get("requires_confirmation"))
+                or name in _DESTRUCTIVE_ACTIONS
             )
+            if requires_confirmation:
+                prompt = action.get("prompt")
+                if not isinstance(prompt, str) or not prompt.strip():
+                    prompt = _DEFAULT_PROMPTS.get(name, f"Confirm {name}?")
+                log.info(
+                    "confirmation_requested",
+                    request_id=event.request_id,
+                    action=name,
+                    prompt=prompt,
+                )
+                await bus.publish(
+                    ConfirmationRequested(
+                        request_id=event.request_id,
+                        action=name,
+                        params=params,
+                        prompt=prompt,
+                    )
+                )
+            else:
+                log.info("action_dispatch", request_id=event.request_id, action=name)
+                await bus.publish(
+                    ActionRequested(request_id=event.request_id, action=name, params=params)
+                )
         else:
             log.warning("openclaw_bad_action", request_id=event.request_id, action=str(action)[:200])
 

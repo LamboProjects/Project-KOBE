@@ -34,13 +34,20 @@ async def _run_all() -> None:
     from kobe.tts.service import run_tts_service
     from kobe.brain.router import run_brain_service
     from kobe.actions.executor import run_action_executor
+    from kobe.actions.confirmation import run_confirmation_service
     from kobe.mute.service import run_mute_service
     from kobe.hud.backend import run_hud_server
     from kobe.system.status import run_system_status_service
+    from kobe.integrations.bambu import run_bambu_service
+    from kobe.integrations.spotify import run_spotify_service
+    from kobe.integrations.steam import run_steam_service
+    from kobe.integrations.discord import run_discord_service
+    from kobe.automation.windows_ctrl import run_windows_automation_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
     async with asyncio.TaskGroup() as tg:
+        # Phase 1 core
         tg.create_task(run_audio_source(audio), name="audio")
         tg.create_task(run_wake_service(bus, settings, audio), name="wake")
         tg.create_task(run_stt_service(bus, settings, audio), name="stt")
@@ -48,8 +55,16 @@ async def _run_all() -> None:
         tg.create_task(run_brain_service(bus, settings), name="brain")
         tg.create_task(run_action_executor(bus, settings), name="actions")
         tg.create_task(run_mute_service(bus, settings), name="mute")
+        # Phase 2 HUD + telemetry
         tg.create_task(run_hud_server(bus, settings), name="hud")
         tg.create_task(run_system_status_service(bus, settings), name="system-status")
+        # Phase 3 integrations
+        tg.create_task(run_confirmation_service(bus, settings), name="confirmation")
+        tg.create_task(run_bambu_service(bus, settings), name="bambu")
+        tg.create_task(run_spotify_service(bus, settings), name="spotify")
+        tg.create_task(run_steam_service(bus, settings), name="steam")
+        tg.create_task(run_discord_service(bus, settings), name="discord")
+        tg.create_task(run_windows_automation_service(bus, settings), name="windows-automation")
 
 
 @app.command()

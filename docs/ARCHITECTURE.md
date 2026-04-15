@@ -91,11 +91,12 @@ hud_backend updates display
 | `hud_backend` | `src/kobe/hud/backend.py` | FastAPI + WebSocket; single outbound writer, per-client lock | 2 | ✅ |
 | `hud_frontend` | `src/kobe/hud/static/` | Plain HTML/CSS/JS dashboard, CSS-animated state orb | 2 | ✅ |
 | `system_status` | `src/kobe/system/status.py` | psutil + pygetwindow telemetry | 2 | ✅ |
-| `printer_integration` | `src/kobe/integrations/bambu.py` | Bambu P1S status + control | 3 | 🔲 |
-| `spotify_integration` | `src/kobe/integrations/spotify.py` | Playback control | 3 | 🔲 |
-| `steam_integration` | `src/kobe/integrations/steam.py` | Game launching | 3 | 🔲 |
-| `discord_alerts` | `src/kobe/integrations/discord.py` | Printer/event notifications | 3 | 🔲 |
-| `confirmation_manager` | `src/kobe/actions/confirmation.py` | Destructive action confirmation flow | 3 | 🔲 |
+| `printer_integration` | `src/kobe/integrations/bambu.py` | Bambu P1S LAN MQTT (paho-mqtt v2), status + pause/resume/cancel | 3 | ✅ |
+| `spotify_integration` | `src/kobe/integrations/spotify.py` | spotipy play/pause/next/prev/volume + now-playing polling | 3 | ✅ |
+| `steam_integration` | `src/kobe/integrations/steam.py` | `steam://` URI launcher with name→app_id alias map | 3 | ✅ |
+| `discord_alerts` | `src/kobe/integrations/discord.py` | Webhook poster on `PrinterAlert`, 3 s dedupe | 3 | ✅ |
+| `windows_automation` | `src/kobe/automation/windows_ctrl.py` | pycaw volume + pygetwindow focus/min/max + win+d | 3 | ✅ |
+| `confirmation_manager` | `src/kobe/actions/confirmation.py` | Destructive-action yes/no voice challenge, sequential | 3 | ✅ |
 | `screen_vision_service` | `src/kobe/vision/` | On-demand screen analysis | 4 | 🔲 |
 | `gesture_service` | `src/kobe/gestures/` | Webcam hand tracking | 5 | 🔲 |
 | `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
@@ -114,6 +115,11 @@ hud_backend updates display
 | `InterruptRequested` | mute | tts |
 | `MuteToggled` | mute | wake, hud |
 | `SystemStatus` | system | hud |
+| `PrinterStatus` | bambu | hud (cache + relay) |
+| `PrinterAlert` | bambu | discord, hud (relay) |
+| `NowPlayingChanged` | spotify | hud (cache + relay) |
+| `ConfirmationRequested` | brain (when action is destructive) | confirmation, hud (relay) |
+| `ConfirmationResult` | confirmation | hud (relay) |
 
 ---
 

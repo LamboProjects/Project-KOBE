@@ -97,6 +97,56 @@ class SystemStatus:
     timestamp_iso: str
 
 
+@dataclass(frozen=True, slots=True)
+class PrinterStatus:
+    """Bambu P1S live state. Emitted by the printer integration, consumed by HUD + voice."""
+    connected: bool
+    stage: str  # "idle" | "preparing" | "printing" | "paused" | "finished" | "failed" | "unknown"
+    progress_pct: float  # 0..100
+    remaining_minutes: int
+    nozzle_temp_c: float
+    bed_temp_c: float
+    filename: str
+    timestamp_iso: str
+
+
+@dataclass(frozen=True, slots=True)
+class PrinterAlert:
+    """Notable printer transitions (start / complete / fail / pause / resume)."""
+    kind: str  # "started" | "completed" | "failed" | "paused" | "resumed"
+    message: str
+    filename: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class NowPlayingChanged:
+    """Current Spotify playback snapshot. Empty when nothing is active."""
+    is_playing: bool
+    track: str = ""
+    artist: str = ""
+    album: str = ""
+    progress_ms: int = 0
+    duration_ms: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmationRequested:
+    """Brain returned a destructive intent. Confirmation manager will speak the prompt,
+    listen for the user's yes/no, and emit a regular `ActionRequested` on confirm."""
+    request_id: str
+    action: str
+    params: dict[str, Any]
+    prompt: str  # "Cancel the print. Confirm?"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmationResult:
+    """Outcome of a ConfirmationRequested flow. Mostly informational; HUD can show it."""
+    request_id: str
+    action: str
+    confirmed: bool
+
+
 # Union of everything — handy for type hints in the bus.
 Event = (
     WakeDetected
@@ -111,4 +161,9 @@ Event = (
     | InterruptRequested
     | MuteToggled
     | SystemStatus
+    | PrinterStatus
+    | PrinterAlert
+    | NowPlayingChanged
+    | ConfirmationRequested
+    | ConfirmationResult
 )

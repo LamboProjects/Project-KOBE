@@ -23,13 +23,20 @@
     <span class="conn-label" id="conn-label">CONNECTING</span>
   </div>
 
+  <!-- Confirmation banner (hidden unless active) -->
+  <div class="confirm-banner" id="confirm-banner" data-status="hidden" aria-hidden="true">
+    <span class="confirm-glyph">?</span>
+    <span class="confirm-prompt" id="confirm-prompt">—</span>
+    <span class="confirm-result" id="confirm-result"></span>
+  </div>
+
   <main class="hud-grid">
     <!-- Top-left brand -->
     <header class="panel brand-panel">
       <div class="brand-mark">
         <span class="brand-glyph">◢◤</span>
         <span class="brand-name">KOBE</span>
-        <span class="brand-sub">// PROJECT HUD · PHASE 2</span>
+        <span class="brand-sub">// PROJECT HUD · PHASE 3</span>
       </div>
       <div class="brand-meta">
         <span class="tag">v0.2</span>
@@ -142,6 +149,66 @@
         <div class="sys-extra">
           <span class="sys-k">FG</span>
           <span class="sys-v" id="system-fg-full">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Printer panel (Bambu P1S) -->
+    <section class="panel printer-panel" id="printer-panel" data-stage="idle" data-connected="false">
+      <div class="panel-header">
+        <span class="panel-title">PRINTER · BAMBU P1S</span>
+        <span class="panel-meta printer-conn" id="printer-conn">
+          <span class="conn-dot"></span>
+          <span id="printer-conn-label">OFFLINE</span>
+        </span>
+      </div>
+      <div class="printer-body">
+        <div class="printer-stage" id="printer-stage">IDLE</div>
+        <div class="printer-file" id="printer-file">— no job —</div>
+        <div class="printer-progress">
+          <div class="printer-progress-row">
+            <span class="printer-progress-label">PROGRESS</span>
+            <span class="printer-progress-value" id="printer-progress-value">—</span>
+          </div>
+          <div class="printer-progress-track">
+            <div class="printer-progress-fill" id="printer-progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="printer-meta">
+          <div class="printer-meta-cell">
+            <span class="printer-meta-k">ETA</span>
+            <span class="printer-meta-v" id="printer-eta">—</span>
+          </div>
+          <div class="printer-meta-cell">
+            <span class="printer-meta-k">NOZL / BED</span>
+            <span class="printer-meta-v" id="printer-temps">—°C / —°C</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Now-playing panel (Spotify) -->
+    <section class="panel nowplaying-panel" id="nowplaying-panel" data-playing="false">
+      <div class="panel-header">
+        <span class="panel-title">NOW PLAYING · SPOTIFY</span>
+        <span class="panel-meta nowplaying-live" id="nowplaying-live">
+          <span class="live-dot"></span>
+          <span id="nowplaying-live-label">IDLE</span>
+        </span>
+      </div>
+      <div class="nowplaying-body">
+        <div class="nowplaying-placeholder" id="nowplaying-placeholder">— nothing playing —</div>
+        <div class="nowplaying-active" id="nowplaying-active" hidden>
+          <div class="np-track" id="np-track">—</div>
+          <div class="np-artist" id="np-artist">—</div>
+          <div class="np-album" id="np-album">—</div>
+          <div class="np-progress-track">
+            <div class="np-progress-fill" id="np-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="np-times">
+            <span id="np-elapsed">0:00</span>
+            <span id="np-duration">0:00</span>
+          </div>
         </div>
       </div>
     </section>

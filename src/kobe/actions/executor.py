@@ -127,15 +127,7 @@ _HANDLERS = {
 
 
 async def _dispatch(event: ActionRequested) -> ActionCompleted:
-    handler = _HANDLERS.get(event.action)
-    if handler is None:
-        log.warning("unknown_action", action=event.action, request_id=event.request_id)
-        return ActionCompleted(
-            request_id=event.request_id,
-            action=event.action,
-            ok=False,
-            detail=f"unknown action: {event.action}",
-        )
+    handler = _HANDLERS[event.action]
     try:
         ok, detail = await handler(event.params or {})
     except Exception as exc:  # noqa: BLE001
@@ -150,12 +142,27 @@ async def _dispatch(event: ActionRequested) -> ActionCompleted:
 
 
 async def run_action_executor(bus: Bus, settings: Settings) -> None:
-    """Long-running coroutine: consumes ActionRequested, publishes ActionCompleted."""
-    log.info("action_executor_start", hotkey=settings.mute_hotkey)
+    """Long-running coroutine: consumes ActionRequested, publishes ActionCompleted.
+
+    Only the generic actions it owns (`_HANDLERS`) produce a completion event.
+    Actions owned by integrations (bambu_*, spotify_*, steam_*, volume_*, window_*,
+    show_desktop, …) are intentionally ignored here — they have dedicated handlers
+    that publish their own `ActionCompleted`. Double-dispatching would surface
+    phantom failures on the HUD.
+    """
+    log.info("action_executor_start", owned_actions=sorted(_HANDLERS))
     async with bus.stream(ActionRequested) as queue:
         try:
             while True:
                 event = await queue.get()
+                if event.action not in _HANDLERS:
+                    # Not ours — let the owning integration handle it silently.
+                    log.debug(
+                        "action_skipped_not_owned",
+                        action=event.action,
+                        request_id=event.request_id,
+                    )
+                    continue
                 log.info(
                     "action_requested",
                     request_id=event.request_id,
