@@ -6,7 +6,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
-## Phase 7 — 🌀 Holographic Fan Integration · *pending commit*
+## Phase 7 — 🌀 Holographic Fan Integration · [`cd14b0f`](../../commit/cd14b0f) + audit [`ea46265`](../../commit/ea46265)
 
 Pluggable content pipeline for 65 cm WiFi holographic fans. Because no vendor in this class publishes an API, KOBE ships the content-generation + backend-abstraction half; the user drops in their own device driver after pcaping the vendor app.
 
