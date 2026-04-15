@@ -11,7 +11,7 @@
 
 | # | Item | Purpose | Estimated Value |
 |---|------|---------|----------------|
-| 1 | Windows PC (RTX 3060) | Main compute node — STT, wake word, HUD, automation | — (owned) ✅ |
+| 1 | Windows 11 PC (RTX 3050 Ti Laptop, 4 GB VRAM) | Main compute node — STT, wake word, HUD, automation | — (owned) ✅ |
 | 2 | Second monitor | Dedicated KOBE HUD display | — (owned) ✅ |
 | 3 | USB microphone | Voice input | — (owned) ✅ |
 | 4 | Dedicated speakers | TTS audio output | — (owned) ✅ |
@@ -58,7 +58,7 @@
 | # | Service | Plan | USD/mo | CAD/mo | Notes |
 |---|---------|------|--------|--------|-------|
 | S1 | OpenWakeWord | Free | $0 | $0 | Local, open source |
-| S2 | faster-whisper (STT) | Free | $0 | $0 | Local, GPU on RTX 3060 |
+| S2 | faster-whisper (STT) | Free | $0 | $0 | Local, GPU on RTX 3050 Ti (`base.en`, int8_float16) |
 | S3 | MediaPipe Hands | Free | $0 | $0 | Local gesture tracking |
 | S4 | FreeCAD | Free | $0 | $0 | Open source CAD |
 | S5 | OpenClaw | Free | $0 | $0 | Self-hosted on VPS |
@@ -107,7 +107,7 @@
 ## Notes
 
 - All hardware is phase-gated — only spend when you hit that phase
-- RTX 3060 handles all AI locally (STT, wake word, gesture) = $0 AI compute cost
+- RTX 3050 Ti handles local AI (STT, wake word, gesture) = $0 AI compute cost; screen vision calls out to gpt-4o-mini / OpenClaw
 - The only real ongoing cost is ElevenLabs ~$15/mo for polished TTS
 - Smart home devices (Phase 6+) are not included — prices vary
 - Prices may change; refresh before purchasing

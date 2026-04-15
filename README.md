@@ -74,12 +74,13 @@ Phase 7 ──── Holographic Fan         🔲
 │                    PROJECT KOBE                     │
 ├──────────────┬──────────────────────────────────────┤
 │ Wake Word    │ OpenWakeWord (local, free)            │
-│ STT          │ faster-whisper (RTX 3060, GPU)        │
+│ STT          │ faster-whisper (RTX 3050 Ti, GPU)     │
 │ Brain        │ OpenClaw + Claude Sonnet 4.6          │
 │ TTS          │ ElevenLabs → OpenAI TTS fallback      │
-│ HUD          │ Local web app → Electron              │
-│ Gestures     │ MediaPipe Hands + Logitech C922       │
-│ Printer      │ Bambu Lab P1S (local + cloud API)     │
+│ HUD          │ FastAPI + WebSocket + vanilla JS      │
+│ Gestures     │ MediaPipe Tasks + Logitech C922       │
+│ Vision       │ mss + OpenAI gpt-4o-mini / OpenClaw   │
+│ Printer      │ Bambu Lab P1S (LAN MQTT, paho-mqtt)   │
 │ Alerts       │ Discord webhooks                      │
 │ CAD          │ FreeCAD (free)                        │
 └──────────────┴──────────────────────────────────────┘
@@ -93,7 +94,7 @@ Phase 7 ──── Holographic Fan         🔲
 ┌──────────────────────────────────────────────────┐
 │  Lambert's Desk Setup                            │
 ├──────────────────────────────────────────────────┤
-│  💻  Windows PC          RTX 3060 GPU            │
+│  💻  Windows 11 PC       RTX 3050 Ti · 4 GB VRAM │
 │  🖥️  Monitor 1           Primary display         │
 │  🖥️  Monitor 2           KOBE HUD (always-on)    │
 │  🎙️  USB Microphone      Voice input             │
@@ -103,6 +104,8 @@ Phase 7 ──── Holographic Fan         🔲
 │  ✨  65cm Holo Fan       Ambient display (Ph.7)  │
 └──────────────────────────────────────────────────┘
 ```
+
+> Driver 591.59 · Python 3.11 · CUDA via `int8_float16` stays under the 4 GB VRAM ceiling on `base.en`.
 
 ---
 
@@ -124,30 +127,37 @@ KOBE responses are **concise by design**. No rambling. No filler.
 ```
 Project-KOBE/
 ├── 📂 docs/
-│   ├── ARCHITECTURE.md              ← System design
+│   ├── ARCHITECTURE.md              ← System design + event catalogue
+│   ├── OPENCLAW.md                  ← /v1/chat + /v1/vision contract
 │   ├── BOM.md                       ← Bill of materials (CAD prices)
 │   ├── BUDGET.md                    ← Full budget breakdown
 │   ├── Project KOBE - Detailed Spec.md
 │   └── Project KOBE - Voice Assistant Plan.md
 │
-├── 📂 src/
-│   ├── wake/          ← Wake word detection service
-│   ├── stt/           ← Speech-to-text (faster-whisper)
-│   ├── tts/           ← Text-to-speech (ElevenLabs)
-│   ├── brain/         ← Conversation router + OpenClaw bridge
-│   ├── hud/           ← HUD frontend + backend
-│   ├── integrations/  ← Spotify, Steam, Bambu, Discord
-│   ├── automation/    ← PC automation + app control
-│   ├── gestures/      ← Gesture recognition
-│   └── vision/        ← Screen vision service
+├── 📂 src/kobe/
+│   ├── bus.py            ← Asyncio pub/sub (drop-oldest)
+│   ├── events.py         ← Immutable event dataclasses
+│   ├── config.py         ← pydantic-settings (layered .env)
+│   ├── audio.py          ← Single-owner mic + 5 s pre-roll
+│   ├── wake/             ← OpenWakeWord detector
+│   ├── stt/              ← faster-whisper + RMS VAD
+│   ├── tts/              ← ElevenLabs → OpenAI, barge-in
+│   ├── brain/            ← OpenClaw HTTP router (+ echo stub)
+│   ├── actions/          ← executor + confirmation manager
+│   ├── mute/             ← Global ctrl+alt+k hotkey
+│   ├── system/           ← psutil + pygetwindow telemetry
+│   ├── hud/              ← FastAPI backend + static JS
+│   ├── automation/       ← pycaw / pygetwindow / win+d
+│   ├── integrations/     ← bambu / spotify / steam / discord
+│   ├── vision/           ← mss + gpt-4o-mini / OpenClaw
+│   └── gestures/         ← MediaPipe Tasks + C922
 │
-├── 📂 config/         ← Configuration files
-├── 📂 assets/         ← Icons, fonts, visuals
-├── 📂 scripts/        ← Setup and utility scripts
+├── 📂 config/         ← .env.example + runtime config
+├── 📂 scripts/        ← smoke_phase{1..5}.py
 ├── 📂 tests/          ← Module tests
-├── 📂 .github/        ← CI/CD workflows
 │
 ├── ROADMAP.md
+├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 └── README.md
@@ -185,7 +195,7 @@ Project-KOBE/
 
 ## ⚠️ Project Status
 
-> **Phase 1 + Phase 2 landed.** Voice pipeline (wake → STT → brain → TTS → actions + mute) plus a live HUD (FastAPI backend, WebSocket-driven JARVIS-style frontend, system telemetry) are all wired against a shared asyncio event bus. Requires `config/.env` with API keys before end-to-end use.
+> **Phases 1–5 landed.** Voice pipeline (wake → STT → brain → TTS → actions + mute), a live HUD (FastAPI + WebSocket dashboard, system telemetry), printer + Spotify + Steam + Discord integrations with a spoken confirmation flow, screen vision (`mss` + gpt-4o-mini / OpenClaw + 14-app context + per-app specialists), and gesture navigation (MediaPipe Tasks on the C922) are all wired against a shared asyncio event bus. Phase 6 (polish) and Phase 7 (holographic fan) are next. Requires `config/.env` with API keys before end-to-end use.
 
 ### Running
 

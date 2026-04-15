@@ -1,62 +1,36 @@
-# ⚙️ Automation
+# ⚙️ Actions
 
-> **Phase 1–3** · Status: 🔲 Not started
+> **Phase 1–3** · Status: ✅ Built
 
-Handles PC-level automation — app launching, window management, volume, and desktop control.
-
----
-
-## Responsibilities
-
-- Launch applications by voice command
-- Close apps (with confirmation for major apps)
-- Focus / switch between windows
-- Control system volume
-- Control media playback (OS-level)
-- Open websites or tools
-- Future: file search, workflow macros, script execution
+Central action dispatcher + spoken confirmation for destructive commands.
 
 ---
 
-## Priority App Support
+## What's built
 
-| App | Commands |
-|-----|---------|
-| Spotify | Open, play, pause, next |
-| Steam | Open, launch game |
-| VS Code | Open, open project |
-| Bambu Studio | Open, check printer |
-| FreeCAD | Open |
-| Browser | Open URL |
+- `executor.py` — `run_action_service(bus, settings)` consumes `ActionRequested` and dispatches:
+  - Generic verbs (`open_app`, `open_url`, `noop`) handled locally, with an allowlist.
+  - Everything else re-published on an inner namespaced topic so the owning integration (`bambu_*`, `spotify_*`, `steam_*`, `screen_inspect`, windows control from `automation/windows_ctrl.py`) handles it without a double-dispatch.
+  - Emits `ActionCompleted(ok, summary)` for HUD + TTS surfacing.
+- `confirmation.py` — `run_confirmation_service(bus, settings)` turns `ConfirmationRequested` into a TTS challenge ("I can cancel the print. Confirm?"), waits for the next `TranscriptReady`, runs a yes/no classifier, and emits `ConfirmationResult(approved)`. Sequential (one challenge at a time) so we don't stack prompts.
 
----
-
-## Example Voice Commands
+## Example voice commands
 
 ```
-"Hey KOBE, open Spotify"        → launches Spotify
-"Hey KOBE, open VS Code"        → launches VS Code
-"OK KOBE, volume up"            → increases system volume
-"Hey KOBE, mute"                → mutes system audio
-"OK KOBE, close Bambu Studio"   → closes (with confirmation)
-"Hey KOBE, launch Cyberpunk"    → Steam game launch
+"Hey KOBE, open Spotify"        → open_app (generic)
+"Hey KOBE, open VS Code"        → open_app (generic)
+"OK KOBE, volume up"            → windows_ctrl (pycaw)
+"Hey KOBE, pause the print"     → ConfirmationRequested → bambu_pause
+"OK KOBE, launch Cyberpunk"     → steam_launch_game (alias → appid)
+"Hey KOBE, what's on my screen?" → screen_inspect (vision service)
 ```
 
----
+## Confirmation policy
 
-## Confirmation Policy
+- Anything that mutates the printer (pause, resume, cancel) goes through `ConfirmationRequested` first.
+- Future: closing apps with unsaved-work risk (VS Code, FreeCAD, Bambu Studio) will wire through the same flow.
 
-The following actions require spoken confirmation before executing:
+## Inputs / Outputs
 
-- Closing apps with unsaved work risk (VS Code, FreeCAD, Bambu Studio)
-- Cancelling a print
-- Any action flagged as destructive in config
-
----
-
-## Notes
-
-- Windows-first — uses `subprocess` / `pywin32` / `WScript` for automation
-- App paths configurable (different machines may have different install locations)
-- Volume control via Windows audio API
-- Context-aware: if Spotify is already open, focus it instead of relaunching
+- **Input:** `ActionRequested(verb, args)`, `ConfirmationRequested(verb, args, prompt)`, `TranscriptReady` (while a confirmation is pending)
+- **Output:** Dispatches work to `integrations/*` or `automation/windows_ctrl.py`; emits `ActionCompleted` and `ConfirmationResult`

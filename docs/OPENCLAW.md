@@ -34,9 +34,9 @@ This is the same KOBE agent you're talking to right now on Telegram.
 
 ---
 
-## Configuration (Phase 1)
+## Configuration
 
-When building the local voice pipeline, configure `brain/conversation_router` to hit the OpenClaw API:
+The local pipeline reads OpenClaw settings from `config/.env`:
 
 ```env
 # config/.env
@@ -45,7 +45,18 @@ OPENCLAW_API_KEY=<your-openclaw-token>
 OPENCLAW_AGENT=main
 ```
 
-The local pipeline sends transcribed text → OpenClaw returns the response text → TTS speaks it.
+When `OPENCLAW_API_URL` is blank, `src/kobe/brain/router.py` falls back to a built-in echo stub so the rest of the pipeline still works in dev.
+
+### Expected HTTP endpoints
+
+KOBE talks to OpenClaw over two endpoints on the same host:
+
+| Endpoint | Phase | Who calls it | Request | Response |
+|----------|-------|--------------|---------|----------|
+| `POST /v1/chat` | 1 | `src/kobe/brain/router.py` | JSON: `{ "text": "...", "session": "kobe" }` + `Authorization: Bearer` | JSON reply the TTS service speaks |
+| `POST /v1/vision` | 4 | `src/kobe/vision/backends.py` → `OpenClawBackend` | `multipart/form-data` with a JPEG field (`image`) plus the (optionally specialist-augmented) question | JSON: `{ "ok": bool, "text": str }` — consumed verbatim by `VisionResult`/`ResponseReady` |
+
+Both calls stream back text KOBE either speaks directly or surfaces on the HUD vision panel.
 
 ---
 
@@ -82,5 +93,6 @@ This means KOBE can:
 | Connection | Status |
 |-----------|--------|
 | Repo cloned to OpenClaw workspace | ✅ Done |
-| OpenClaw as brain for voice pipeline | 🔲 Phase 1 — configure when building |
-| API endpoint hardened for local network | 🔲 Phase 1 |
+| `/v1/chat` wired into voice pipeline | ✅ Phase 1 — `src/kobe/brain/router.py` (echo stub when unconfigured) |
+| `/v1/vision` wired into vision service | ✅ Phase 4 — `OpenClawBackend` in `src/kobe/vision/backends.py` |
+| API endpoint hardened for local network | 🔲 Phase 6 (polish) |

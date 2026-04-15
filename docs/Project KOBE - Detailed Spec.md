@@ -4,9 +4,23 @@
 **Owner:** Lambert  
 **Assistant Identity:** KOBE  
 **Document Type:** Planning and Architecture Spec  
-**Status:** Planning only, no implementation  
+**Status:** Planning artifact — body reflects pre-build intent; implementation has diverged in places. See callout below.  
 **Primary Build Environment:** Windows desktop  
 **Primary Brain/Agent Stack:** OpenClaw + Claude via Claude Code  
+
+---
+
+> ### Implementation status (as of Phase 5)
+>
+> Phases 1–5 of the roadmap below are **shipped** on `origin/main`. Phase 6 (polish) and Phase 7 (holographic fan) are still planned.
+>
+> - §6 *Software Architecture Overview* and §7 *Recommended Core Tech Stack* are live — see `docs/ARCHITECTURE.md` for the module/event map that actually got built.
+> - §8 *User Experience Design* (voice principles + confirmation model) is implemented via `src/kobe/actions/confirmation.py`.
+> - §9 *HUD Specification* is live at `127.0.0.1:8765` (`src/kobe/hud/`).
+> - §11 *Screen Vision* and §12 *Gesture Layer* (or equivalent sections) are live under `src/kobe/vision/` and `src/kobe/gestures/` respectively.
+> - Hardware in §5 is accurate **except** the GPU: the live machine is an **RTX 3050 Ti Laptop · 4 GB VRAM**, not the 3060 originally targeted.
+>
+> The spec body is preserved as a planning artifact — don't treat any stale wording here as a contradiction of the shipped code.
 
 ---
 

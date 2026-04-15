@@ -3,6 +3,8 @@
 **Owner:** Lambert  
 **Status:** Planning
 
+> **Historical planning artifact; superseded by the implemented `kobe/wake|stt|tts|brain` modules.** Kept for reference.
+
 ---
 
 ## Vision

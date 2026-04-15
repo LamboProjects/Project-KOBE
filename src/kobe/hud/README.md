@@ -1,34 +1,22 @@
 # 🖥️ HUD
 
-> **Phase 2** · Status: 🔲 Not started
+> **Phase 2** · Status: ✅ Built
 
-Always-on second monitor display — KOBE's persistent visual presence.
+Always-on second monitor display — KOBE's persistent visual presence. Single-page web app served locally at `http://127.0.0.1:8765`.
 
 ---
 
-## Responsibilities
+## What's built
 
-- Render a fullscreen, always-on interface on the dedicated second monitor
-- Display KOBE's current state and active context at a glance
-- Show live voice transcripts and responses
-- Surface printer, media, and system status widgets
-- Handle gesture input from `gesture_service`
+- `backend.py` — `run_hud_service(bus, settings)` spins up FastAPI + uvicorn on `127.0.0.1:8765`. Routes:
+  - `GET /` — serves `static/index.html`
+  - `GET /static/*` — serves `static/app.js`, `static/style.css`
+  - `GET /health` — liveness JSON
+  - `GET /ws` — WebSocket with a per-client `asyncio.Lock` and single outbound writer, hydrating a `HudSnapshot` on connect.
+- Subscribes to every bus event (`WakeDetected`, `TranscriptReady`, `ResponseReady`, `ActionCompleted`, `SpeakStarted/Finished`, `MuteToggled`, `SystemStatus`, `PrinterStatus`, `PrinterAlert`, `NowPlayingChanged`, `ConfirmationRequested/Result`, `VisionResult`, `GestureDetected`, `WebcamStatus`) and fans them out after stripping server-local paths (e.g. vision `image_path`).
+- `static/` — `index.html`, `app.js`, `style.css`. Plain vanilla JS, CSS-animated state orb, scanline + vignette overlays. State derived server-side from event history.
 
-## Architecture
-
-```
-hud_backend (Node/Python service)
-    ├── subscribes to internal event bus
-    ├── aggregates state from all services
-    └── serves data to hud_frontend via WebSocket
-
-hud_frontend (local web app or Electron)
-    ├── fullscreen kiosk-mode UI
-    ├── always-on second monitor
-    └── renders widgets from hud_backend data
-```
-
-## Visual Design
+## Visual design
 
 | Property | Value |
 |----------|-------|
@@ -37,29 +25,28 @@ hud_frontend (local web app or Electron)
 | Accent | Blue (`#1a6eff`) |
 | Alert colour | Amber (`#FF9500`) |
 | Error colour | Red (`#FF3B30`) |
-| Font | Fira Code / JetBrains Mono |
+| Font | JetBrains Mono |
 | Theme | Holographic, futuristic, clean — not gimmicky |
 
-## Core Modules
+## Panels
 
-### Always Visible
-- 🕐 Current time and date
-- 🎙️ KOBE state badge — `IDLE` / `LISTENING` / `THINKING` / `SPEAKING` / `MUTED`
-- 🔊 Mic status indicator
-- 🖨️ Printer quick status
-- 🎵 Spotify now playing
+### Always visible
+- Clock, foreground app, CPU / memory
+- KOBE state badge — `IDLE` / `LISTENING` / `THINKING` / `SPEAKING` / `MUTED`
+- Mic + mute indicator
+- Printer quick status
+- Spotify now-playing
 
-### Contextual (appear when relevant)
-- 📝 Live voice transcript
-- 💬 KOBE response panel
-- 🖨️ Full printer dashboard
-- ✅ Confirmation prompt overlay
-- 👋 Gesture hint overlay
-- 🔍 Screen analysis result panel
+### Contextual
+- Live voice transcript (last 8, hydrated on reconnect)
+- KOBE response panel
+- Full printer dashboard (progress / stage / temps / AMS)
+- Confirmation prompt overlay
+- Vision result panel with `SCANNING…` shimmer (45 s safety timeout)
+- Gesture + webcam health indicator
 
 ## Notes
 
-- Phase 2: start as a **local web app** (fastest to prototype and iterate)
-- Phase 6: convert to **Electron** for better kiosk behaviour if needed
-- Must be readable from desk distance — large text, high contrast
-- Idle mode: animated but subdued — alive without being distracting
+- Kiosk launch: `start chrome --kiosk http://127.0.0.1:8765`
+- Electron migration (Phase 6) still planned for tighter kiosk behaviour
+- No camera frames or hand landmarks ever hit the HUD — only semantic gesture names + confidences

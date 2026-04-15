@@ -1,6 +1,6 @@
 # 🏗️ Architecture
 
-> **Status:** Phase 1 + 2 implemented; later phases will extend this map. Every service below is a long-running `async def run_*_service(bus, settings, …)` coroutine wired into a single `asyncio.TaskGroup` in `src/kobe/__main__.py`.
+> **Status:** Phases 1–5 implemented. Phase 6 (polish) and Phase 7 (holographic fan) will extend this map. Every service below is a long-running `async def run_*_service(bus, settings, …)` coroutine wired into a single `asyncio.TaskGroup` in `src/kobe/__main__.py`.
 
 ---
 
@@ -107,7 +107,7 @@ hud_backend updates display
 | `gesture_classifier` | `src/kobe/gestures/classifier.py` | Pure deque-based static + swipe + shake recognizers with per-name cooldowns, no-hand reset, held-pose-no-refire, raw-label preservation, shake-suppresses-swipe | 5 | ✅ |
 | `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
 
-## Event catalogue (Phase 1 + 2)
+## Event catalogue (Phases 1–5)
 
 | Event | Published by | Consumed by |
 |-------|--------------|-------------|
@@ -144,4 +144,4 @@ hud_backend updates display
 
 ---
 
-*Full architecture spec to be generated in Claude Code before Phase 1 implementation begins.*
+*Module map, event catalogue and data flow above reflect the shipped Phase 1–5 code. See [ROADMAP.md](../ROADMAP.md) for the phase plan and [OPENCLAW.md](./OPENCLAW.md) for the brain/vision HTTP contract.*

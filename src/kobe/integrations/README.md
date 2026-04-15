@@ -1,69 +1,29 @@
 # 🔌 Integrations
 
-> **Phase 3** · Status: 🔲 Not started
+> **Phase 3** · Status: ✅ Built
 
-Connects KOBE to external apps and services.
-
----
-
-## Integration Targets
-
-| Integration | Purpose | Priority |
-|-------------|---------|---------|
-| 🖨️ **Bambu Lab P1S** | Print status, alerts, pause/resume/cancel | 🔴 High |
-| 🎵 **Spotify** | Playback control, now-playing HUD | 🔴 High |
-| 🎮 **Steam** | Game launch by voice | 🟡 Medium |
-| 💬 **Discord** | Printer alerts, event notifications | 🟡 Medium |
-| 💡 **Smart Plug / Lights** | On/off control | 🟢 Low (Phase 6) |
+External-service bridges. Each lives in a single module and talks to the rest of the system via the event bus.
 
 ---
 
-## Bambu Lab P1S
+## What's built
 
-**Must-have features:**
-- `GET /status` → print progress, time remaining, AMS state, camera
-- Alerts: print started, completed, failed, paused
-- Control (with confirmation): pause, resume, cancel
+- `bambu.py` — **Bambu Lab P1S** over LAN MQTT (`paho-mqtt` v2). Subscribes to the printer's push topic, publishes `PrinterStatus` (progress, stage, temps, remaining, AMS) and `PrinterAlert` (started / completed / failed / paused) onto the bus. Handles `bambu_status` (returns a TTS-ready summary) and the confirmation-gated `bambu_pause` / `bambu_resume` / `bambu_cancel` commands. Needs `BAMBU_HOST`, `BAMBU_SERIAL`, `BAMBU_ACCESS_CODE`.
+- `spotify.py` — **Spotify** via `spotipy`. Play / pause / next / previous / volume, plus a polling loop that emits `NowPlayingChanged` for the HUD. Needs `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` (user auth on first run).
+- `steam.py` — **Steam** game launch by voice. Maps spoken names through an alias map to an app id and spawns `steam://rungameid/<id>`. No creds required.
+- `discord.py` — **Discord alerts** via webhook (`DISCORD_WEBHOOK_URL`). Listens for `PrinterAlert`, dedupes within a 3 s window, posts a color-coded embed. Never posts anything else — strictly one-way alerts.
 
-**Dashboard fields:**
-```
-Print name         ████████░░ 82%
-Time remaining     ~24 min
-AMS / Filament     PLA White — Slot 1
-Status             PRINTING
-Camera             [live feed if feasible]
-```
+## Bus contract
 
----
-
-## Spotify
-
-- Play / pause / next / previous
-- Volume up / down
-- Start named playlist by voice
-- Now-playing widget on HUD
-- Future: music-reactive holographic fan visuals
-
----
-
-## Steam
-
-- Launch game by name (`"Hey KOBE, launch Cyberpunk"`)
-- List recent games
-- Future: wishlist deal awareness
-
----
-
-## Discord
-
-- Webhook-based alerts (no full bot required for basic use)
-- Events: print finished ✅, print failed ❌, print paused ⏸️
-- Optional: voice channel experiments (Phase 6+)
-
----
+| Integration | Consumes | Publishes |
+|-------------|----------|-----------|
+| `bambu` | `ActionRequested(bambu_*)`, `ConfirmationResult` | `PrinterStatus`, `PrinterAlert`, `ActionCompleted` |
+| `spotify` | `ActionRequested(spotify_*)` | `NowPlayingChanged`, `ActionCompleted` |
+| `steam` | `ActionRequested(steam_launch_game)` | `ActionCompleted` |
+| `discord` | `PrinterAlert` | (outbound HTTP only) |
 
 ## Notes
 
-- Each integration lives in its own subfolder: `integrations/bambu/`, `integrations/spotify/`, etc.
-- All credentials stored in `.env` — never hardcoded
-- Integrations communicate via the internal event bus — not direct coupling to HUD
+- All credentials come from `config/.env` — see `SECURITY.md` for the full list
+- Integrations never touch the HUD directly; the HUD relays from `bus → ws`
+- Smart plug / lights integration is still planned for Phase 6

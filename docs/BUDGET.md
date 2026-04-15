@@ -11,7 +11,7 @@
 
 | Item | Notes | Est. Value |
 |------|-------|-----------|
-| Windows PC | RTX 3060, primary compute node | — (owned) |
+| Windows 11 PC | RTX 3050 Ti Laptop · 4 GB VRAM, primary compute node | — (owned) |
 | Second monitor | Dedicated KOBE HUD display | — (owned) |
 | USB microphone | Voice input | — (owned) |
 | Dedicated speakers | TTS output | — (owned) |
@@ -71,7 +71,7 @@
 | Service | Cost | Notes |
 |---------|------|-------|
 | OpenWakeWord | Free | Local, open source |
-| faster-whisper (STT) | Free | Local, GPU-accelerated on RTX 3060 |
+| faster-whisper (STT) | Free | Local, GPU-accelerated on RTX 3050 Ti (`base.en`, int8_float16) |
 | MediaPipe Hands | Free | Local gesture tracking |
 | OpenClaw | Free | Self-hosted |
 | Claude via GitHub Copilot Pro+ | Already paying | No extra cost |
@@ -119,7 +119,7 @@
 ## Notes
 
 - All hardware is optional and phase-gated — you only spend when you reach that phase
-- Local STT and wake word cost $0 — your RTX 3060 handles it
+- Local STT and wake word cost $0 — your RTX 3050 Ti handles it
 - ElevenLabs Creator at ~$15 CAD/mo is the only real ongoing cost
 - Smart home devices (lights, etc.) not budgeted yet — prices vary widely
 - Bambu P1S integration has no additional cost (local API access)

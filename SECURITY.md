@@ -6,14 +6,17 @@
 
 The following must **never** appear in source control:
 
-| Secret | Where to Store |
-|--------|---------------|
-| ElevenLabs API key | `.env` file (gitignored) |
-| OpenAI API key | `.env` file (gitignored) |
-| GitHub token | `.env` file (gitignored) |
-| Discord bot token | `.env` file (gitignored) |
-| Bambu Cloud credentials | `.env` file (gitignored) |
-| OpenClaw config | Local config only |
+| Secret | Env var | Where to Store |
+|--------|---------|---------------|
+| ElevenLabs API key | `ELEVENLABS_API_KEY` | `config/.env` (gitignored) |
+| OpenAI API key (TTS fallback + vision) | `OPENAI_API_KEY` | `config/.env` (gitignored) |
+| OpenClaw API key + URL | `OPENCLAW_API_KEY`, `OPENCLAW_API_URL` | `config/.env` (gitignored) |
+| Bambu P1S LAN access code + serial | `BAMBU_ACCESS_CODE`, `BAMBU_SERIAL` | `config/.env` (gitignored) |
+| Spotify app credentials | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | `config/.env` (gitignored) |
+| Discord alert webhook | `DISCORD_WEBHOOK_URL` | `config/.env` (gitignored) |
+| GitHub token (workflows only) | `GITHUB_TOKEN` | `.env` file (gitignored) |
+
+See `config/.env.example` for the full template.
 
 ---
 
