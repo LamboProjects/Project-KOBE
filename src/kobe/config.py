@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     gesture_min_score: float = 0.6
     gesture_num_hands: int = 1
     # Static-gesture debounce: top label must win N_required of N_window frames.
-    gesture_static_window: int = 8
+    gesture_static_window: int = 6
     gesture_static_required: int = 5
     # Swipe motion detection (normalized image coords, 0..1).
     gesture_swipe_window: int = 10

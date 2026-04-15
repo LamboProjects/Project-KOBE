@@ -823,6 +823,28 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression (Codex review round 9 P1): fragmented evidence must
+    # NOT fire. Pattern: 3 Thumb_Up + 3 Victory (unmapped) + 2 Thumb_Up =
+    # 5 Thumb_Up total across 8 frames. On a 5-of-6 debounce (window=6,
+    # required=5) this never fires because no 6-frame window contains 5
+    # Thumb_Ups. On a 5-of-8 ratio (window=8, required=5) it WOULD fire,
+    # which is a real false-positive regression relative to main. This
+    # case pins the ratio-preserving requirement: widening the window
+    # without also widening the threshold breaks the debounce contract.
+    fragmented = (
+        [frame(i, "Thumb_Up", 0.9) for i in range(3)]
+        + [frame(3 + i, "Victory", 0.5) for i in range(3)]
+        + [frame(6 + i, "Thumb_Up", 0.9) for i in range(2)]
+    )
+    cases.append(
+        StreamCase(
+            name="hard_fragmented_votes",
+            frames=fragmented,
+            expected_events=[],
+            forbidden_events=list(_ALL_NAMES),
+        )
+    )
+
     # Regression: direct pose switch WITHOUT releasing hand must still
     # eventually fire the new gesture, just with the design-accepted
     # latency penalty from draining the vote buffer on release (see
