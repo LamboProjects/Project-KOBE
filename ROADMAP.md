@@ -73,19 +73,23 @@
 
 ---
 
-## Phase 5 — 👋 Gesture Control
+## Phase 5 — 👋 Gesture Control  ✅
 
 **Goal:** Add a second natural interaction channel without sacrificing reliability.
 
 > *Success: Gesture features work consistently and feel natural — not like a demo.*
 
-- [ ] Logitech C922 webcam integration
-- [ ] MediaPipe hand tracking setup
-- [ ] Swipe left / right gesture
-- [ ] Point / select gesture
-- [ ] Confirm / dismiss gesture
-- [ ] HUD panel navigation by gesture
-- [ ] Gesture reliability tuning
+- [x] Logitech C922 webcam integration — `cv2.VideoCapture(idx, CAP_DSHOW)` + 1-frame buffer to avoid stale frames
+- [x] MediaPipe hand tracking — Tasks API `GestureRecognizer` in `LIVE_STREAM` mode (research-recommended over deprecated `solutions.hands`)
+- [x] Swipe left / right — landmark-9 motion buffer + lookback dx threshold + consecutive-frame voting
+- [x] Point — pretrained `Pointing_Up`
+- [x] Confirm — pretrained `Thumb_Up` / `Open_Palm`
+- [x] Dismiss — pretrained `Closed_Fist` / `Thumb_Down` + custom shake detector
+- [x] HUD panel navigation by gesture — `swipe_left/right` cycles a `data-focused` outline across all visible panels; `select`/`confirm` flashes; `dismiss` clears
+- [x] Reliability tuning: per-name cooldowns, static-vote debounce, no-hand resets static + motion state, held-pose can't re-fire across cooldown, shake suppresses spurious swipe, webcam-health flips on consecutive read failures, mute drains the queue
+- [x] Privacy: no camera frames or hand landmarks are sent to the HUD — only the recognised semantic gesture name + confidence
+
+**Setup:** `uv sync --extra gestures` (mediapipe is opt-in so non-gesture installs don't require a webcam-capable wheel).
 
 ---
 

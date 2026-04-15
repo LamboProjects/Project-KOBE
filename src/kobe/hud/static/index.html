@@ -231,6 +231,29 @@
         </div>
       </div>
     </section>
+
+    <!-- Gestures panel (webcam + last detected gesture) -->
+    <section class="panel gestures-panel" id="gestures-panel" data-connected="false" data-accent="none">
+      <div class="panel-header">
+        <span class="panel-title">GESTURES · WEBCAM</span>
+        <span class="panel-meta gestures-cam" id="gestures-cam">
+          <span class="conn-dot"></span>
+          <span class="gestures-cam-label" id="gestures-cam-label">OFFLINE</span>
+          <span class="gestures-fps" id="gestures-fps">— FPS</span>
+        </span>
+      </div>
+      <div class="gestures-body">
+        <div class="gestures-badge" id="gestures-badge" data-empty="true">
+          <div class="gestures-glyph" id="gestures-glyph">—</div>
+          <div class="gestures-label" id="gestures-label">— no gesture yet —</div>
+        </div>
+        <div class="gestures-meta" id="gestures-meta">—</div>
+        <div class="gestures-submeta">
+          <span class="gestures-sub-k">FRAMES</span>
+          <span class="gestures-sub-v" id="gestures-frames">—</span>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script src="/static/app.js"></script>

@@ -102,7 +102,9 @@ hud_backend updates display
 | `vision_backends` | `src/kobe/vision/backends.py` | `VisionBackend` Protocol returning `(ok, text)` + `NullBackend` stub + `OpenAIBackend` (gpt-4o-mini) + `OpenClawBackend` (multipart POST). Shared `encode_jpeg(shot, q, max_edge)` downsamples + JPEG-encodes. | 4 | ✅ |
 | `vision_context` | `src/kobe/vision/context.py` | Pure `detect_context(window_title) → WindowContext`. 14 known apps (vscode, bambu_studio, freecad, fusion360, blender, obsidian, chrome, firefox, terminal, excel, slack, discord, explorer, fallback `generic`). | 4 | ✅ |
 | `vision_specialists` | `src/kobe/vision/specialists.py` | Per-app prompt augmentation. `augment_question(q, ctx)` returns a string that prefixes app-specific framing then appends the user question. | 4 | ✅ |
-| `gesture_service` | `src/kobe/gestures/` | Webcam hand tracking | 5 | 🔲 |
+| `gesture_service` | `src/kobe/gestures/service.py` | Bridges camera + MediaPipe + classifier to bus, mute-aware, maps gestures to HUD nav actions, telemetry every 2 s | 5 | ✅ |
+| `gesture_camera` | `src/kobe/gestures/camera.py` | cv2 + MediaPipe Tasks `GestureRecognizer` LIVE_STREAM, dedicated producer thread, asyncio bridge via `loop.call_soon_threadsafe`, auto-downloaded model file, FPS + connectivity health tracking | 5 | ✅ |
+| `gesture_classifier` | `src/kobe/gestures/classifier.py` | Pure deque-based static + swipe + shake recognizers with per-name cooldowns, no-hand reset, held-pose-no-refire, raw-label preservation, shake-suppresses-swipe | 5 | ✅ |
 | `profile_manager` | `src/kobe/profiles/` | User profiles (Lambert, future Jasmine) | 6 | 🔲 |
 
 ## Event catalogue (Phase 1 + 2)
@@ -126,6 +128,8 @@ hud_backend updates display
 | `ConfirmationResult` | confirmation | hud (relay) |
 | `VisionRequested` | brain (or any caller) | vision_service |
 | `VisionResult` | vision_service | hud (relay) |
+| `GestureDetected` | gesture_service | hud (cache + relay) |
+| `WebcamStatus` | gesture_service | hud (cache + relay) |
 
 ---
 

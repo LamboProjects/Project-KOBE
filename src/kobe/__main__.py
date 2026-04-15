@@ -44,6 +44,7 @@ async def _run_all() -> None:
     from kobe.integrations.discord import run_discord_service
     from kobe.automation.windows_ctrl import run_windows_automation_service
     from kobe.vision.service import run_vision_service
+    from kobe.gestures.service import run_gesture_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
@@ -68,6 +69,8 @@ async def _run_all() -> None:
         tg.create_task(run_windows_automation_service(bus, settings), name="windows-automation")
         # Phase 4 foundation (vision capture + backend stub)
         tg.create_task(run_vision_service(bus, settings), name="vision")
+        # Phase 5 (webcam + MediaPipe gesture recognition)
+        tg.create_task(run_gesture_service(bus, settings), name="gestures")
 
 
 @app.command()

@@ -23,6 +23,17 @@
   const CONFIRM_SAFETY_TIMEOUT_MS = 15000;
   const CONFIRM_RESULT_FADE_MS = 2200;
   const VISION_SHIMMER_SAFETY_MS = 45000;
+  const GESTURE_FLASH_MS = 700;
+
+  // Fixed lookup — server values can never become HTML. Keys must match
+  // kobe.events.GestureDetected.name vocabulary.
+  const GESTURE_MAP = {
+    swipe_left:  { glyph: "\u2190", label: "SWIPE LEFT",  accent: "cyan"    },
+    swipe_right: { glyph: "\u2192", label: "SWIPE RIGHT", accent: "cyan"    },
+    point:       { glyph: "\u261D", label: "POINT",       accent: "magenta" },
+    confirm:     { glyph: "\u2713", label: "CONFIRM",     accent: "green"   },
+    dismiss:     { glyph: "\u2715", label: "DISMISS",     accent: "red"     },
+  };
 
   // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
@@ -77,6 +88,15 @@
     visionQuestion:    $("vision-question"),
     visionSummary:     $("vision-summary"),
     visionMeta:        $("vision-meta"),
+    // Gestures / webcam
+    gesturesPanel:     $("gestures-panel"),
+    gesturesBadge:     $("gestures-badge"),
+    gesturesGlyph:     $("gestures-glyph"),
+    gesturesLabel:     $("gestures-label"),
+    gesturesMeta:      $("gestures-meta"),
+    gesturesFrames:    $("gestures-frames"),
+    gesturesFps:       $("gestures-fps"),
+    gesturesCamLabel:  $("gestures-cam-label"),
   };
 
   // ---------- Clock (the only JS-driven poll) ----------
@@ -370,6 +390,89 @@
     renderVision();
   }
 
+  // ---------- Gestures / webcam ----------
+  // Last-detected gesture persists until replaced; webcam stats update live.
+  const gestures = {
+    last: null,       // { glyph, label, accent, meta }
+    connected: false, // from WebcamStatus
+    fps: null,
+    frameCount: null,
+  };
+  let gestureFlashTimer = null;
+
+  function renderGesturesBadge() {
+    const g = gestures.last;
+    if (!g) {
+      el.gesturesPanel.setAttribute("data-accent", "none");
+      el.gesturesBadge.setAttribute("data-empty", "true");
+      el.gesturesGlyph.textContent = "\u2014"; // em-dash placeholder
+      el.gesturesLabel.textContent = "— no gesture yet —";
+      el.gesturesMeta.textContent = "—";
+      return;
+    }
+    el.gesturesPanel.setAttribute("data-accent", g.accent);
+    el.gesturesBadge.setAttribute("data-empty", "false");
+    el.gesturesGlyph.textContent = g.glyph;
+    el.gesturesLabel.textContent = g.label;
+    el.gesturesMeta.textContent = g.meta;
+  }
+
+  function renderGesturesWebcam() {
+    el.gesturesPanel.setAttribute("data-connected", gestures.connected ? "true" : "false");
+    el.gesturesCamLabel.textContent = gestures.connected ? "ONLINE" : "OFFLINE";
+    el.gesturesFps.textContent =
+      (typeof gestures.fps === "number" && isFinite(gestures.fps))
+        ? gestures.fps.toFixed(0) + " FPS"
+        : "— FPS";
+    el.gesturesFrames.textContent =
+      (typeof gestures.frameCount === "number" && isFinite(gestures.frameCount))
+        ? String(gestures.frameCount)
+        : "—";
+  }
+
+  function onGestureDetected(data) {
+    if (!data || typeof data !== "object") return;
+    const name = typeof data.name === "string" ? data.name : "";
+    const spec = Object.prototype.hasOwnProperty.call(GESTURE_MAP, name)
+      ? GESTURE_MAP[name]
+      : null;
+    if (!spec) return; // Unknown gestures are ignored (keeps badge stable).
+
+    const hand = typeof data.hand === "string" && data.hand ? data.hand : "unknown";
+    const confRaw = typeof data.confidence === "number" ? data.confidence : 0;
+    const conf = Math.max(0, Math.min(1, confRaw));
+    const meta =
+      hand.toUpperCase() + " hand · conf " +
+      (conf * 100).toFixed(0) + "% · " +
+      formatVisionTime(data.timestamp_iso);
+
+    gestures.last = {
+      glyph: spec.glyph,
+      label: spec.label,
+      accent: spec.accent,
+      meta: meta,
+    };
+    renderGesturesBadge();
+
+    // Fade-flash pulse (mirrors confirmation-result timing pattern).
+    if (gestureFlashTimer) { clearTimeout(gestureFlashTimer); gestureFlashTimer = null; }
+    el.gesturesBadge.setAttribute("data-flash", "true");
+    gestureFlashTimer = setTimeout(function () {
+      el.gesturesBadge.removeAttribute("data-flash");
+      gestureFlashTimer = null;
+    }, GESTURE_FLASH_MS);
+  }
+
+  function onWebcamStatus(data) {
+    if (!data || typeof data !== "object") return;
+    if (typeof data.connected === "boolean") gestures.connected = data.connected;
+    if (typeof data.fps === "number" && isFinite(data.fps)) gestures.fps = data.fps;
+    if (typeof data.frame_count === "number" && isFinite(data.frame_count)) {
+      gestures.frameCount = data.frame_count;
+    }
+    renderGesturesWebcam();
+  }
+
   // ---------- Confirmation banner ----------
   let confirmActiveId = null;
   let confirmSafetyTimer = null;
@@ -441,6 +544,9 @@
         if (data.printer) setPrinter(data.printer);
         if (data.now_playing) setNowPlaying(data.now_playing);
         if (data.vision) onVisionResult(data.vision);
+        // Snapshot may or may not carry these — graceful no-op when absent.
+        if (data.webcam) onWebcamStatus(data.webcam);
+        if (data.gesture) onGestureDetected(data.gesture);
         break;
       }
 
@@ -484,6 +590,14 @@
         onVisionResult(data);
         break;
 
+      case "GestureDetected":
+        onGestureDetected(data);
+        break;
+
+      case "WebcamStatus":
+        onWebcamStatus(data);
+        break;
+
       case "MuteToggled":
         // State already updated via msg.state if present; fallback:
         if (typeof msg.state !== "string" && typeof data.muted === "boolean") {
@@ -493,15 +607,103 @@
 
       // These are primarily state-bearing; msg.state handles them.
       case "WakeDetected":
+      case "ActionRequested":
+        // Phase 5: gesture-driven HUD navigation. Other action namespaces
+        // (open_app, bambu_*, spotify_*, etc.) are handled server-side.
+        if (data && typeof data.action === "string" && data.action.startsWith("hud_")) {
+          onHudNavAction(data.action);
+        }
+        break;
+
       case "RecordingStarted":
       case "RecordingStopped":
       case "SpeakStarted":
       case "SpeakFinished":
-      case "ActionRequested":
       case "ActionCompleted":
       default:
         // no extra handling
         break;
+    }
+  }
+
+  // ---------- HUD navigation (gesture-driven) ----------
+  // The gesture service publishes ActionRequested with the names below; the
+  // backend relays every event to clients, so we can handle them here without
+  // a server-side executor. Cycles a `data-focused` attribute across the
+  // user-visible panels so the user can see which one a `select`/`confirm`
+  // would act on. `dismiss` clears the focus. `select`/`confirm` flash it.
+  //
+  // Panels are looked up by CSS class because some of them (response, system,
+  // transcript) don't have ids — they're class-only on `<section class="panel
+  // <name>-panel">`. Using classes also means the cycle automatically picks
+  // up the actually-rendered panels rather than ghost ids.
+  const HUD_NAV_PANEL_CLASSES = [
+    "state-panel",
+    "transcript-panel",
+    "response-panel",
+    "system-panel",
+    "printer-panel",
+    "nowplaying-panel",
+    "vision-panel",
+    "gestures-panel",
+  ];
+  let hudNavIndex = -1;
+  let hudFlashTimer = null;
+  const HUD_NAV_FLASH_MS = 800;
+
+  function _hudResolvedPanels() {
+    // Resolve once per call so a node added later (none today, but cheap) can
+    // still join the cycle. Filters out misses so the cycle never has a dead
+    // stop.
+    const out = [];
+    for (const cls of HUD_NAV_PANEL_CLASSES) {
+      const node = document.querySelector("." + cls);
+      if (node) out.push(node);
+    }
+    return out;
+  }
+
+  function _hudFocusedEl() {
+    const panels = _hudResolvedPanels();
+    if (hudNavIndex < 0 || hudNavIndex >= panels.length) return null;
+    return panels[hudNavIndex];
+  }
+
+  function _hudClearAllFocus() {
+    for (const node of _hudResolvedPanels()) {
+      node.removeAttribute("data-focused");
+      node.removeAttribute("data-flash");
+    }
+  }
+
+  function _hudApplyFocus() {
+    _hudClearAllFocus();
+    const node = _hudFocusedEl();
+    if (node) node.setAttribute("data-focused", "true");
+  }
+
+  function onHudNavAction(action) {
+    const n = _hudResolvedPanels().length;
+    if (n === 0) return;
+    if (action === "hud_navigate_next") {
+      hudNavIndex = hudNavIndex < 0 ? 0 : (hudNavIndex + 1) % n;
+      _hudApplyFocus();
+    } else if (action === "hud_navigate_prev") {
+      hudNavIndex = hudNavIndex < 0 ? n - 1 : (hudNavIndex - 1 + n) % n;
+      _hudApplyFocus();
+    } else if (action === "hud_select" || action === "hud_confirm") {
+      const node = _hudFocusedEl();
+      if (!node) return;
+      if (hudFlashTimer) { clearTimeout(hudFlashTimer); hudFlashTimer = null; }
+      node.setAttribute("data-flash", "true");
+      hudFlashTimer = setTimeout(function () {
+        node.removeAttribute("data-flash");
+        hudFlashTimer = null;
+      }, HUD_NAV_FLASH_MS);
+    } else if (action === "hud_dismiss") {
+      hudNavIndex = -1;
+      if (hudFlashTimer) { clearTimeout(hudFlashTimer); hudFlashTimer = null; }
+      _hudClearAllFocus();
     }
   }
 
@@ -576,5 +778,7 @@
   // ---------- Boot ----------
   renderTranscript();
   renderVision();
+  renderGesturesBadge();
+  renderGesturesWebcam();
   connect();
 })();

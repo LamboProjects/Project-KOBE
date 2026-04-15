@@ -59,6 +59,9 @@ _EVENT_TYPES: tuple[type, ...] = (
     # Phase 4 foundation
     kevents.VisionRequested,
     kevents.VisionResult,
+    # Phase 5
+    kevents.GestureDetected,
+    kevents.WebcamStatus,
 )
 
 
@@ -108,6 +111,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     last_printer: dict[str, Any] | None = None
     last_now_playing: dict[str, Any] | None = None
     last_vision: dict[str, Any] | None = None
+    last_gesture: dict[str, Any] | None = None
+    last_webcam: dict[str, Any] | None = None
     outbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=256)
 
     def snapshot() -> dict[str, Any]:
@@ -118,6 +123,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
             "printer": last_printer,
             "now_playing": last_now_playing,
             "vision": last_vision,
+            "gesture": last_gesture,
+            "webcam": last_webcam,
         }
         return {"type": "HudSnapshot", "data": data, "state": state["value"]}
 
@@ -207,7 +214,8 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
     ]
 
     async def _consume(event_type: type, q: asyncio.Queue) -> None:
-        nonlocal last_response, last_system, last_printer, last_now_playing, last_vision
+        nonlocal last_response, last_system, last_printer, last_now_playing
+        nonlocal last_vision, last_gesture, last_webcam
         name = event_type.__name__
         while True:
             event = await q.get()
@@ -236,6 +244,10 @@ async def run_hud_server(bus: Bus, settings: Settings) -> None:
                 data = dict(data)
                 data.pop("image_path", None)
                 last_vision = data
+            elif isinstance(event, kevents.GestureDetected):
+                last_gesture = data
+            elif isinstance(event, kevents.WebcamStatus):
+                last_webcam = data
 
             state["value"] = _derive_state(state["value"], event)
             enqueue({"type": name, "data": data, "state": state["value"]})

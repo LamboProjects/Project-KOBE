@@ -31,6 +31,17 @@ dependencies = [
     "pillow>=10.4",
 ]
 
+[project.optional-dependencies]
+# Phase 5 (gesture control) needs MediaPipe + a webcam. Install via
+# `uv sync --extra gestures`. Keep it optional so headless / cv2-incompatible
+# environments can still install KOBE without a wheel for `mediapipe`.
+# `mediapipe` already pulls in `opencv-contrib-python` which provides `cv2`
+# — do NOT add `opencv-python` separately, both ship the same package and
+# would clobber each other.
+gestures = [
+    "mediapipe>=0.10.21,<0.11",
+]
+
 [project.scripts]
 kobe = "kobe.__main__:cli"
 

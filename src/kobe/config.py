@@ -104,6 +104,39 @@ class Settings(BaseSettings):
     confirmation_yes_words: str = "yes,yeah,yep,confirm,confirmed,do it,go ahead,sure"
     confirmation_no_words: str = "no,nope,cancel,stop,nevermind,never mind,abort"
 
+    # Gesture control (Phase 5)
+    # Logitech C922 over MediaPipe Tasks API GestureRecognizer (LIVE_STREAM).
+    gesture_enabled: bool = True
+    gesture_camera_index: int = 0
+    gesture_camera_width: int = 640
+    gesture_camera_height: int = 480
+    gesture_camera_fps: int = 30
+    # Path the gesture recognizer model lives at on disk. If missing it's
+    # auto-downloaded from the canonical Google Storage URL on first run.
+    gesture_model_path: str = "~/.cache/kobe/gesture_recognizer.task"
+    gesture_model_url: str = (
+        "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/"
+        "gesture_recognizer/float16/1/gesture_recognizer.task"
+    )
+    # MediaPipe inference thresholds (per the official guide defaults +
+    # research recommendations).
+    gesture_min_detection_confidence: float = 0.6
+    gesture_min_tracking_confidence: float = 0.5
+    gesture_min_presence_confidence: float = 0.5
+    gesture_min_score: float = 0.6
+    gesture_num_hands: int = 1
+    # Static-gesture debounce: top label must win N_required of N_window frames.
+    gesture_static_window: int = 6
+    gesture_static_required: int = 5
+    # Swipe motion detection (normalized image coords, 0..1).
+    gesture_swipe_window: int = 10
+    gesture_swipe_lookback: int = 5
+    gesture_swipe_dx_threshold: float = 0.18
+    gesture_swipe_dy_max: float = 0.08
+    gesture_swipe_required_frames: int = 3
+    # Cooldown between same-name detections, milliseconds.
+    gesture_cooldown_ms: int = 1200
+
     # Screen vision
     vision_enabled: bool = True
     # Which backend analyses the screenshot. "null" = foundation stub (no model call).

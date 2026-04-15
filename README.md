@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Phase%204%20Complete-00D4FF?style=for-the-badge&logo=github" />
+  <img src="https://img.shields.io/badge/Status-Phase%205%20Complete-00D4FF?style=for-the-badge&logo=github" />
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows" />
   <img src="https://img.shields.io/badge/GPU-NVIDIA%20CUDA-76B900?style=for-the-badge&logo=nvidia" />
   <img src="https://img.shields.io/badge/AI-Claude%20Sonnet-8A2BE2?style=for-the-badge&logo=anthropic" />
@@ -45,7 +45,7 @@ Not a chatbot with a mic duct-taped on. A **real operating layer** over your dig
 | 🎵 **Media** | Spotify (spotipy, play/pause/next/prev/vol + now-playing) and Steam `steam://` launcher | ✅ Built |
 | 🖥️ **Windows** | System volume via pycaw, window focus/min/max via pygetwindow, show-desktop | ✅ Built |
 | 🛑 **Safety** | Confirmation flow for destructive actions (yes/no voice challenge before cancel/pause) | ✅ Built |
-| 👋 **Gestures** | MediaPipe + Logitech C922 | 🔲 Planned (Phase 5) |
+| 👋 **Gestures** | MediaPipe Tasks `GestureRecognizer` (live-stream) on C922; swipe/point/confirm/dismiss → HUD nav | ✅ Built (`uv sync --extra gestures`) |
 | 👁️ **Screen Vision** | mss capture + OpenAI gpt-4o-mini / OpenClaw multipart backends + 14-app context routing + per-app specialists + HUD panel | ✅ Built |
 | ✨ **Holo Fan** | 65cm holographic ambient display | 🔲 Planned (Phase 7) |
 
@@ -58,7 +58,7 @@ Phase 1 ──── Core Voice MVP          ✅
 Phase 2 ──── HUD Display             ✅
 Phase 3 ──── Printer & Productivity  ✅
 Phase 4 ──── Screen Vision           ✅
-Phase 5 ──── Gesture Control         🔲
+Phase 5 ──── Gesture Control         ✅
 Phase 6 ──── Premium Polish          🔲
 Phase 7 ──── Holographic Fan         🔲
 ```
@@ -195,6 +195,8 @@ irm https://astral.sh/uv/install.ps1 | iex
 
 # 2. Sync deps (uses Python 3.11 via .python-version)
 uv sync
+# (Optional, for Phase 5 gestures) — installs MediaPipe + the cv2 it ships with:
+uv sync --extra gestures
 
 # 3. Copy the env template and fill in keys
 cp config/.env.example config/.env
@@ -205,6 +207,7 @@ uv run python scripts/smoke_phase1.py   # brain → tts → actions path
 uv run python scripts/smoke_phase2.py   # HUD routes + WS protocol
 uv run python scripts/smoke_phase3.py   # confirmation flow + executor allowlist
 uv run python scripts/smoke_phase4.py   # vision capture + null backend + screen_inspect action
+uv run python scripts/smoke_phase5.py   # gesture classifier (mock-driven; no webcam)
 
 # 5. Run the live pipeline (start your terminal as Administrator
 #    if you want the ctrl+alt+k global mute hotkey to work)

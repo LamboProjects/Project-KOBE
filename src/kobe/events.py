@@ -163,6 +163,32 @@ class VisionRequested:
 
 
 @dataclass(frozen=True, slots=True)
+class GestureDetected:
+    """A gesture was recognised from the webcam stream.
+
+    `name` uses KOBE's semantic vocabulary (not MediaPipe's pretrained labels):
+    "swipe_left" | "swipe_right" | "point" | "confirm" | "dismiss".
+    `raw_label` carries the underlying MediaPipe label (or "swipe"/"shake" for
+    the custom motion detectors) for debugging.
+    """
+    name: str
+    confidence: float
+    hand: str  # "left" | "right" | "unknown"
+    raw_label: str
+    timestamp_iso: str
+
+
+@dataclass(frozen=True, slots=True)
+class WebcamStatus:
+    """Periodic webcam health snapshot for the HUD."""
+    connected: bool
+    fps: float
+    frame_count: int
+    detail: str = ""
+    timestamp_iso: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class VisionResult:
     """Outcome of a VisionRequested. `summary` is the human-readable text the brain
     (or TTS) will speak. `image_path` is populated only when the service was asked
@@ -203,4 +229,6 @@ Event = (
     | ConfirmationResult
     | VisionRequested
     | VisionResult
+    | GestureDetected
+    | WebcamStatus
 )
