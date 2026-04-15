@@ -1,0 +1,104 @@
+"""Event types exchanged on the internal bus.
+
+Events are immutable dataclasses. Subscribers receive them via `Bus.subscribe(EventType)`.
+Publishers never hold references to subscribers — coupling is by event type only.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+from uuid import uuid4
+
+
+def _new_id() -> str:
+    return uuid4().hex[:12]
+
+
+@dataclass(frozen=True, slots=True)
+class WakeDetected:
+    """A wake word was detected. STT should start recording; TTS should interrupt."""
+    keyword: str
+    confidence: float
+    request_id: str = field(default_factory=_new_id)
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingStarted:
+    request_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingStopped:
+    request_id: str
+    duration_s: float
+    reason: str  # "vad_silence" | "max_duration" | "interrupted"
+
+
+@dataclass(frozen=True, slots=True)
+class TranscriptReady:
+    """STT produced a transcript. Brain should consume and route."""
+    request_id: str
+    text: str
+    duration_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseReady:
+    """Brain produced a spoken response. TTS should speak it."""
+    request_id: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class ActionRequested:
+    """Brain returned an action intent. Executor should run it."""
+    request_id: str
+    action: str  # e.g. "open_app"
+    params: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ActionCompleted:
+    request_id: str
+    action: str
+    ok: bool
+    detail: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SpeakStarted:
+    request_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class SpeakFinished:
+    request_id: str
+    interrupted: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class InterruptRequested:
+    """Stop current TTS playback (barge-in)."""
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class MuteToggled:
+    """User toggled mute. Wake service should pause/resume detection."""
+    muted: bool
+
+
+# Union of everything — handy for type hints in the bus.
+Event = (
+    WakeDetected
+    | RecordingStarted
+    | RecordingStopped
+    | TranscriptReady
+    | ResponseReady
+    | ActionRequested
+    | ActionCompleted
+    | SpeakStarted
+    | SpeakFinished
+    | InterruptRequested
+    | MuteToggled
+)

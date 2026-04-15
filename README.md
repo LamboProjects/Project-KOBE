@@ -183,8 +183,33 @@ Project-KOBE/
 
 ## ⚠️ Project Status
 
-> **KOBE is currently in planning phase.** No code has been written yet.
-> Implementation begins at Phase 1. This repo will be populated progressively as each phase is built.
+> **Phase 1 scaffolding landed.** Voice pipeline (wake → STT → brain → TTS → actions + mute) wired against a shared asyncio event bus. Requires config/.env with API keys before end-to-end use.
+
+### Running Phase 1
+
+```bash
+# 1. Install uv if you don't have it (PowerShell)
+irm https://astral.sh/uv/install.ps1 | iex
+
+# 2. Sync deps
+uv sync
+
+# 3. Copy the env template and fill in keys
+cp config/.env.example config/.env
+# edit config/.env → ELEVENLABS_API_KEY, OPENCLAW_API_KEY, OPENCLAW_API_URL, ...
+
+# 4. Smoke test (no API keys / mic / speakers required)
+uv run python scripts/smoke_phase1.py
+
+# 5. Run the live pipeline
+uv run kobe run
+```
+
+> **GPU note**: `faster-whisper` defaults to CUDA with `int8_float16`. On a 4 GB GPU, stay on `base.en` (default). Set `WHISPER_DEVICE=cpu` and `WHISPER_COMPUTE_TYPE=int8` to disable CUDA.
+
+> **Wake word note**: "Hey KOBE" has no pretrained model yet. Default is `hey_jarvis` as a stand-in. Train a custom OpenWakeWord model and point `WAKE_MODELS` at the `.onnx` file when ready.
+
+> **Mute note**: The `keyboard` module often needs admin on Windows to install its low-level hook. If `ctrl+alt+k` doesn't work, run your terminal as Administrator, or swap in a different hotkey backend later.
 
 ---
 

@@ -8,3 +8,21 @@ __pycache__/
 dist/
 build/
 config/secrets.*
+config/.env
+
+# Python
+*.pyo
+.venv/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.python-version
+
+# Model caches
+*.onnx
+*.tflite
+models/
+
+# Scratch
+scratch/
