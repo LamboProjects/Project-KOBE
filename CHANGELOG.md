@@ -6,6 +6,51 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## Post-Phase-7 — 🔬 Autoresearch-style gesture classifier tuning
+
+Ran Karpathy's autoresearch loop (edit → commit → eval → keep/revert) against `src/kobe/gestures/classifier.py` on a 44-case synthetic benchmark (34 train + 10 heldout), then 12 rounds of harsh `codex review --base main`. Every bug Codex caught has a named regression canary in `scratch/autoresearch_kobe/synth.py`.
+
+### Changed
+- **`src/kobe/gestures/classifier.py`** — adds `_static_hold_lock` + unified `_static_release_streak` mechanism. After a static gesture fires, records the KOBE semantic name (`confirm`/`dismiss`/`point`). Subsequent ticks that vote to the same winner are suppressed until an explicit release:
+  - `has_hand=False` (hand left the frame), OR
+  - `gesture_static_required` consecutive frames that are *not* held-consistent (unmapped, low-score, **or** a different KOBE mapping — unified so a single `Closed_Fist` misclassification during a `Thumb_Up` hold doesn't defeat the lock).
+  When the release-streak crosses threshold, the vote deque is also drained — otherwise sustained cross-semantic misclassification would clear the lock *and* immediately fire the opposite semantic from those same stale votes.
+
+### Fixed
+- **Held-pose duplicate fire across cooldown** — pre-existing bug: a user holding `Thumb_Up` for longer than `gesture_cooldown_ms` (1.2 s default, 36 frames @ 30 fps) would get a second `confirm` event around frame 40 as the vote deque refilled. The hold-lock blocks this. Canary: `hard_no_refire_during_hold`.
+- **MediaPipe flicker during hold (same-semantic)** — one unmapped/`Victory` frame every 10 during a long hold would have cleared a naive raw-label lock; the KOBE-semantic lock plus release-streak gate ignores it. Canaries: `hard_flicker_during_hold`, `hard_long_same_semantic_flicker`.
+- **Cross-semantic misclassification** — a single `Closed_Fist` frame during a `Thumb_Up` hold no longer clears the lock; a sustained 5-frame misclassification clears it *and* drains the vote buffer, so no spurious `dismiss` fires from the stale votes. Canaries: `hard_cross_mapping_flicker`, `hard_cross_mapping_sustained`.
+- **In-frame release** — user fires confirm, relaxes to a neutral pose without leaving the camera view, then forms `Thumb_Up` again → second confirm fires. The release-streak accumulates on unmapped frames and clears the lock once it crosses `gesture_static_required`. Canary: `hard_relax_inframe_then_refire`.
+- **Direct pose switch** — `Thumb_Up` hold directly to `Closed_Fist` with no no-hand gap still fires `dismiss` (with a design-accepted ~4-frame extra latency, preferable to cross-semantic false fires on misclassification). Canary: `hard_direct_pose_switch`.
+
+### Metrics (44-case synthetic benchmark, train + heldout union)
+
+| Metric    | Baseline (main) | After          | Δ        |
+|-----------|-----------------|----------------|----------|
+| F1        | 0.9552          | **0.9756**     | +0.0204  |
+| Precision | 0.9697          | **1.0000**     | +0.0303  |
+| Recall    | 0.9412          | 0.9524         | +0.0112  |
+| Latency   | 5.50            | 5.30           | −0.20    |
+| Score     | 0.9277          | **0.9491**     | +0.0214  |
+
+Zero false positives. The 2 remaining `fn` cases are intentional dataset contradictions (same MediaPipe input, opposite expected outcomes) that no algorithm can distinguish.
+
+### Sweeps tried and reverted
+- `gesture_min_score` 0.6 → 0.5: +0.0015 synthetic score but admits 0.50–0.59 MediaPipe noise in production (Codex R4 P2).
+- `gesture_static_window` 6 → 8: +0.0003 synthetic score but lowered the effective debounce ratio from 5/6 (83 %) to 5/8 (63 %) — `hard_fragmented_votes` canary pins this tradeoff (Codex R9 P1).
+- 1-frame swipe-streak grace: no case in the synthetic dataset exercised it.
+
+### Added
+- `scratch/autoresearch_kobe/` — reusable tuning infrastructure:
+  - `program.md` — protocol for the loop.
+  - `synth.py` — 44 deterministic labeled streams, split 34 train / 10 heldout, with 7 regression canaries for Codex findings.
+  - `harness.py` — scores classifier via F1 + latency, `_pristine_settings()` factory bypasses `env_file` and `GESTURE_*` env vars so benchmarks are machine-independent.
+  - `run_experiment.py` — appends a row to `results.tsv` per commit; crashes logged as `crash` status (not silently dropped).
+  - `iterate.py` — in-process param sweeper, validates `--param` names against `Settings.model_fields` to reject typos.
+  - `FINDINGS.md` — final writeup, kept/reverted experiments, per-round Codex correspondence.
+
+---
+
 ## Phase 7 — 🌀 Holographic Fan Integration · [`cd14b0f`](../../commit/cd14b0f) + audit [`ea46265`](../../commit/ea46265)
 
 Pluggable content pipeline for 65 cm WiFi holographic fans. Because no vendor in this class publishes an API, KOBE ships the content-generation + backend-abstraction half; the user drops in their own device driver after pcaping the vendor app.

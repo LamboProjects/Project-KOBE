@@ -14,7 +14,8 @@ Hand-gesture control of KOBE via the C922 webcam, driven by MediaPipe Tasks in `
   - **Point** — pretrained `Pointing_Up`
   - **Confirm** — pretrained `Thumb_Up` / `Open_Palm`
   - **Dismiss** — pretrained `Closed_Fist` / `Thumb_Down` + custom shake detector
-  - Per-name cooldowns, static-vote debounce, no-hand resets, held-pose can't re-fire across cooldown, shake suppresses spurious swipe.
+  - Per-name cooldowns, static-vote debounce, no-hand resets, shake suppresses spurious swipe.
+  - **Hold-lock** (`_static_hold_lock`) — after a static fires, the winning KOBE name is locked against re-fire until an explicit release. Release = no-hand **or** `gesture_static_required` consecutive non-held-consistent frames (unified unmapped / low-score / different-mapping streak). Vote deque is drained on release so a sustained misclassification can't fire the opposite semantic from stale votes. See [`scratch/autoresearch_kobe/FINDINGS.md`](../../../scratch/autoresearch_kobe/FINDINGS.md) for the tuning loop that landed this + regression canaries.
 - `service.py` — `run_gesture_service(bus, settings)` wires camera → classifier → bus. Mute-aware (drains its queue on `MuteToggled`), maps gestures to HUD nav actions, publishes `GestureDetected(name, confidence)` and `WebcamStatus` telemetry every 2 s.
 
 ## Hardware
