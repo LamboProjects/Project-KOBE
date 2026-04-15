@@ -823,6 +823,32 @@ def make_cases() -> list[StreamCase]:
         )
     )
 
+    # Regression: user fires confirm, relaxes into a neutral/unmapped pose
+    # while staying in frame (MediaPipe reports 'Victory'/low-score for a
+    # sustained stretch), then forms Thumb_Up again to fire a SECOND
+    # confirm. Both fires must land. The round-1 hold-lock fix broke this
+    # by never clearing the lock on in-frame unmapped frames; round-2
+    # added a `_static_unmapped_streak` counter so a sustained
+    # `>=static_required` unmapped stretch clears the lock.
+    #
+    # Frame layout: 6 Thumb_Up (fire 1) + 6 Victory (release, sustained) +
+    # 40 Victory (hold past cooldown, 46*33ms ≈ 1518ms > 1200ms cooldown) +
+    # 10 Thumb_Up (fire 2, now clear to fire because lock is released AND
+    # cooldown expired).
+    relax_and_refire = (
+        [frame(i, "Thumb_Up", 0.9) for i in range(6)]
+        + [frame(6 + i, "Victory", 0.3) for i in range(46)]
+        + [frame(52 + i, "Thumb_Up", 0.9) for i in range(10)]
+    )
+    cases.append(
+        StreamCase(
+            name="hard_relax_inframe_then_refire",
+            frames=relax_and_refire,
+            expected_events=[("confirm", 0, 11), ("confirm", 52, 61)],
+            forbidden_events=["dismiss", "point", "swipe_left", "swipe_right"],
+        )
+    )
+
     # Regression: MediaPipe flicker during a continuous hold (single
     # unmapped-label frame every 10 frames). The user is clearly still
     # holding the same pose, so only ONE confirm must fire. Without
