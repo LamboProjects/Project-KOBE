@@ -1257,6 +1257,60 @@ body {
 /* =========================================================
    Responsive fallback (kept simple; target is 1920x1080)
    ========================================================= */
+/* =========================================================
+   FAN pill — compact HUD tile for the holographic fan
+   Lives in .brand-meta alongside v0.6 / WS / LAMBERT.
+   ========================================================= */
+.fan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  position: relative;
+  transition: box-shadow 160ms ease-out, border-color 160ms ease-out;
+}
+.fan-pill .fan-label {
+  color: var(--cyan);
+  letter-spacing: 0.2em;
+}
+.fan-pill .fan-backend {
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.fan-pill .fan-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 6px currentColor;
+  flex: 0 0 auto;
+}
+.fan-pill[data-conn="on"]  .fan-dot { background: var(--green); color: var(--green); }
+.fan-pill[data-conn="off"] .fan-dot { background: var(--red);   color: var(--red); }
+.fan-pill .fan-clip {
+  color: var(--cyan);
+  letter-spacing: 0.18em;
+  font-size: 9px;
+  padding-left: 6px;
+  border-left: 1px solid var(--panel-border);
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Flash when a new clip is pushed (~500ms) */
+@keyframes fan-pill-flash {
+  0%   { box-shadow: 0 0 0 rgba(0, 212, 255, 0); border-color: var(--panel-border); }
+  40%  { box-shadow: 0 0 14px rgba(0, 212, 255, 0.7); border-color: var(--panel-border-bright); }
+  100% { box-shadow: 0 0 0 rgba(0, 212, 255, 0); border-color: var(--panel-border); }
+}
+.fan-pill[data-flash="true"] {
+  animation: fan-pill-flash 500ms ease-out;
+}
+
 @media (max-width: 1400px) {
   .hud-grid {
     grid-template-columns: 1fr 1.6fr 1fr;
@@ -1328,7 +1382,8 @@ body {
   .transcript-list li.transcript-enter,
   .response-text,
   .nowplaying-active,
-  .vision-content {
+  .vision-content,
+  .fan-pill[data-flash="true"] {
     animation: none !important;
   }
 

@@ -179,6 +179,28 @@ class GestureDetected:
 
 
 @dataclass(frozen=True, slots=True)
+class FanClipPushed:
+    """A hologram clip has been rendered and handed to the fan backend.
+    `name` is a short clip identifier (`"logo"` / `"printer"` / `"spotify"` /
+    `"gesture"` / `"stl"`); `path` is server-local and only populated by
+    backends that persist to disk (stripped before HUD relay)."""
+    name: str
+    duration_s: float
+    path: str = ""
+    timestamp_iso: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class FanBackendStatus:
+    """Periodic health pulse for the hologram fan backend (not the physical
+    fan's own state — that's vendor-proprietary)."""
+    backend: str  # "null" | "file" | "http" | custom
+    connected: bool
+    detail: str = ""
+    timestamp_iso: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileChanged:
     """User profile was switched (e.g. Lambert → Jasmine). Downstream services
     can re-theme, swap wake words, change TTS voice, etc. For Phase 6 scaffolding
@@ -242,4 +264,6 @@ Event = (
     | GestureDetected
     | WebcamStatus
     | ProfileChanged
+    | FanClipPushed
+    | FanBackendStatus
 )

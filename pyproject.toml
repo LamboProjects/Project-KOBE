@@ -45,6 +45,17 @@ gestures = [
     "mediapipe>=0.10.21,<0.11",
 ]
 
+# Phase 7 (holographic fan content pipeline). Pillow is already a base dep
+# (Phase 4 vision uses it), so we only need the video + 3D stack here.
+# imageio-ffmpeg ships a static ffmpeg binary so the user doesn't need one
+# on PATH. Install via `uv sync --extra hologram`.
+hologram = [
+    "imageio>=2.34",
+    "imageio-ffmpeg>=0.5",
+    "trimesh>=4.4",
+    "pyglet>=2.0 ; platform_system == 'Windows'",
+]
+
 [project.scripts]
 kobe = "kobe.__main__:cli"
 

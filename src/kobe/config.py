@@ -184,6 +184,27 @@ class Settings(BaseSettings):
     muteme_enabled: bool = True
     muteme_poll_ms: int = 20  # blocking read timeout; state-change driven, 50 Hz ceiling
 
+    # Holographic fan (Phase 7)
+    hologram_enabled: bool = True
+    # "null" = log-only stub. "file" = write MP4s to hologram_output_dir.
+    # "http" = POST to a vendor device (scaffold; user fills in auth after pcap).
+    hologram_backend: str = "null"
+    hologram_output_dir: str = "scratch/hologram"
+    hologram_http_url: str = ""
+    hologram_http_auth_token: str = ""
+    hologram_http_timeout_s: float = 15.0
+    hologram_resolution: int = 512  # square frame side
+    hologram_fps: int = 30
+    # Rate-limit pushes: most fans loop uploaded clips internally, so more
+    # than one push every ~5 s just thrashes the device's flash.
+    hologram_clip_cooldown_s: float = 5.0
+    # How often to refresh the idle-logo loop (when nothing else is active).
+    hologram_logo_refresh_s: float = 60.0
+    # Duration of gesture-flash clips in seconds.
+    hologram_gesture_flash_s: float = 1.5
+    # Optional STL model to render in idle rotation. Empty = skip STL mode.
+    hologram_stl_path: str = ""
+
     # Multi-profile (Phase 6 scaffold)
     profile_name: str = "lambert"
     profile_label: str = "Lambert"

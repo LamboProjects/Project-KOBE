@@ -65,6 +65,7 @@ async def _run_all() -> None:
     from kobe.integrations.home_assistant import run_homeassistant_service
     from kobe.mute.muteme import run_muteme_service
     from kobe.profiles.manager import run_profile_service
+    from kobe.fan.service import run_fan_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
@@ -95,6 +96,8 @@ async def _run_all() -> None:
         tg.create_task(run_homeassistant_service(bus, settings), name="home-assistant")
         tg.create_task(run_muteme_service(bus, settings), name="muteme")
         tg.create_task(run_profile_service(bus, settings), name="profiles")
+        # Phase 7 (holographic fan)
+        tg.create_task(run_fan_service(bus, settings), name="fan")
 
 
 @app.command()

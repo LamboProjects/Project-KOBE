@@ -26,6 +26,8 @@
   const CONFIRM_RESULT_FADE_MS = 2200;
   const VISION_SHIMMER_SAFETY_MS = 45000;
   const GESTURE_FLASH_MS = 700;
+  const FAN_FLASH_MS = 500;
+  const VALID_FAN_BACKENDS = new Set(["null", "file", "http"]);
 
   // Fixed lookup — server values can never become HTML. Keys must match
   // kobe.events.GestureDetected.name vocabulary.
@@ -101,6 +103,10 @@
     gesturesCamLabel:  $("gestures-cam-label"),
     // Profile
     profileTag:        $("profile-tag"),
+    // Fan (holographic fan pill)
+    fanPill:           $("fan-pill"),
+    fanBackend:        $("fan-backend"),
+    fanClip:           $("fan-clip"),
   };
 
   // ---------- Clock (the only JS-driven poll) ----------
@@ -580,6 +586,42 @@
     el.profileTag.textContent = String(raw).toUpperCase();
   }
 
+  // ---------- Fan (holographic fan pill) ----------
+  let fanFlashTimer = null;
+
+  function onFanClipPushed(data) {
+    if (!data || typeof data !== "object") return;
+    const rawName = typeof data.name === "string" ? data.name.trim() : "";
+    const shown = rawName ? rawName.toUpperCase() : "—";
+    // Cap length so the pill never stretches the header.
+    el.fanClip.textContent = shown.length > 10 ? shown.slice(0, 10) : shown;
+
+    if (fanFlashTimer) { clearTimeout(fanFlashTimer); fanFlashTimer = null; }
+    el.fanPill.setAttribute("data-flash", "true");
+    fanFlashTimer = setTimeout(function () {
+      el.fanPill.removeAttribute("data-flash");
+      fanFlashTimer = null;
+    }, FAN_FLASH_MS);
+  }
+
+  function onFanBackendStatus(data) {
+    if (!data || typeof data !== "object") return;
+    let backend = typeof data.backend === "string" ? data.backend.toLowerCase() : "";
+    // Clamp unknown backend names to a placeholder — any server-side custom
+    // vendor key (future giwox / kiwi / etc.) should still be visible, but
+    // we cap the length so a pathological value can't break the pill layout.
+    if (!VALID_FAN_BACKENDS.has(backend)) {
+      backend = backend ? backend.slice(0, 6) : "";
+    }
+    el.fanBackend.textContent = backend ? backend.toUpperCase() : "—";
+
+    if (typeof data.connected === "boolean") {
+      el.fanPill.setAttribute("data-conn", data.connected ? "on" : "off");
+    } else {
+      el.fanPill.setAttribute("data-conn", "unknown");
+    }
+  }
+
   // ---------- Message dispatch ----------
   function handleMessage(msg) {
     if (!msg || typeof msg !== "object") return;
@@ -614,6 +656,9 @@
         if (data.webcam) onWebcamStatus(data.webcam);
         if (data.gesture) onGestureDetected(data.gesture);
         if (data.profile) setProfile(data.profile);
+        // Backend may not populate these yet — graceful no-op when absent.
+        if (data.fan_status) onFanBackendStatus(data.fan_status);
+        if (data.fan_clip) onFanClipPushed(data.fan_clip);
         break;
       }
 
@@ -667,6 +712,14 @@
 
       case "ProfileChanged":
         setProfile(data);
+        break;
+
+      case "FanClipPushed":
+        onFanClipPushed(data);
+        break;
+
+      case "FanBackendStatus":
+        onFanBackendStatus(data);
         break;
 
       case "MuteToggled":

@@ -111,18 +111,26 @@
 
 ---
 
-## Phase 7 — 🌀 Holographic Fan Integration
+## Phase 7 — 🌀 Holographic Fan Integration  ✅
 
 **Goal:** Add spectacle and ambient visual presence as an enhancement layer.
 
 > *Success: The fan enhances the system without becoming a dependency or distraction.*
 
-- [ ] 65cm WiFi holographic fan setup and media pipeline
-- [ ] KOBE logo rotation animation
-- [ ] Music-reactive visuals (Spotify sync)
-- [ ] Printer status visualization
-- [ ] Gesture-linked fan effects
-- [ ] 3D model display support
+Built as a pluggable pipeline because 65 cm WiFi holographic fans have no public SDK — every vendor ships a proprietary phone app. KOBE renders MP4 clips (512×512, 30 fps, H.264 yuv420p, pure black background) and hands them to a `FanBackend`; swap in a vendor-specific driver once you pcap your device.
+
+- [x] Media pipeline — `src/kobe/fan/content.py` generates MP4 clips: rotating logo + progress ring + Spotify waveform + per-gesture flash + STL rotation. Hash dedup so identical scenes don't re-render.
+- [x] KOBE logo rotation — dashed cyan outer ring + counter-rotating magenta inner ring, seamless loop.
+- [x] Music-reactive visuals — 24-bar symmetric EQ mirrored around center, seeded from a SHA-1 of the track name so each song has its own bar pattern.
+- [x] Printer status visualization — 360° progress ring with filled arc, orbiting head-bead, stage-colored center text, truncated filename.
+- [x] Gesture-linked effects — cyan arrows for swipes, magenta point burst, green check for confirm, red shaking-X for dismiss.
+- [x] 3D model display — `render_stl_rotation` via `trimesh.Scene.save_image` with graceful fallback when the offscreen GL context can't init.
+- [x] Backend abstraction — `src/kobe/fan/driver.py` `FanBackend` Protocol + `NullBackend` + `FileOutputBackend` (atomic `os.replace` swap of `current.mp4` with rolling retention) + `HttpPushBackend` scaffold (`POST /upload` + `POST /play`, Bearer auth, TODO(pcap) markers).
+- [x] Async service — `src/kobe/fan/service.py` subscribes to `PrinterStatus` / `NowPlayingChanged` / `GestureDetected`, picks content by priority (gesture flash > printer > spotify > idle logo/STL), renders off the loop, enforces `hologram_clip_cooldown_s`, emits `FanClipPushed` (with `path=""` — never leaks server-local paths) + periodic `FanBackendStatus`.
+- [x] HUD fan pill in the brand panel: backend tag, connection dot, current clip name, flash animation on new push.
+- [x] Graceful degradation — service probes `imageio` at startup and silently disables if the `hologram` extra isn't installed; `HologramEnabled=false` opts out entirely; `HOLOGRAM_BACKEND=null` runs the pipeline without writing anything.
+
+**Setup:** `uv sync --extra hologram` pulls `imageio`, `imageio-ffmpeg` (static ffmpeg binary — no system install), `trimesh`, `pyglet`. Pillow + numpy reused from earlier phases.
 
 ---
 
