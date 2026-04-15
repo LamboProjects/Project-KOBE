@@ -66,6 +66,20 @@ def _values(s: str) -> list[object]:
     return [_parse_value(v) for v in s.split(",")]
 
 
+def _validate_param_names(names: list[str]) -> list[str]:
+    """Reject unknown/misspelled parameter names before the sweep runs.
+
+    `Settings.model_config["extra"] = "ignore"` silently drops unknown
+    kwargs at construction time, so a typo like `--param gesture_sttic_window`
+    would produce a sweep that just reruns the baseline while the ranked
+    table prints the misspelled name with a delta of 0 — misleading.
+    Gate explicitly on the known field set.
+    """
+    valid = set(Settings.model_fields.keys())
+    unknown = [n for n in names if n not in valid]
+    return unknown
+
+
 def run_one(overrides: dict[str, object]) -> dict[str, float]:
     settings = Settings(**overrides)  # type: ignore[arg-type]
     ev = evaluate(settings)
@@ -97,6 +111,14 @@ def main() -> int:
         return 2
 
     param_names: list[str] = args.param
+    unknown = _validate_param_names(param_names)
+    if unknown:
+        print(
+            f"Error: unknown Settings field(s): {unknown}. "
+            f"Check spelling against `src/kobe/config.py::Settings`.",
+            file=sys.stderr,
+        )
+        return 2
     value_lists: list[list[object]] = [_values(v) for v in args.values]
 
     baseline = run_one({})

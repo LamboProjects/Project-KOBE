@@ -70,9 +70,6 @@ def main() -> int:
     # module-top so the early `kobe.config` import sees the pristine path.
     assert os.environ.get("KOBE_ENV_FILE") == _EMPTY_ENV
 
-    ev = evaluate()
-    print(format_report(ev))
-
     sha = _git_short_sha()
     if _git_dirty():
         sha = f"{sha}-dirty"
@@ -89,6 +86,28 @@ def main() -> int:
     # description containing either would shift columns or split the row
     # in half, making `results.tsv` unparseable. Collapse both to spaces.
     safe_description = description.replace("\t", " ").replace("\n", " ").replace("\r", " ").strip()
+
+    # Run the eval in a try block so a classifier regression (import error,
+    # unhandled exception inside `evaluate()`, etc.) gets logged as a
+    # `crash` row per program.md, not swallowed. The tuning loop needs to
+    # SEE failed experiments — silent aborts are the worst-case scenario
+    # because a broken change appears identical in `results.tsv` to
+    # "experiment never ran".
+    try:
+        ev = evaluate()
+        print(format_report(ev))
+    except Exception as e:
+        err_summary = str(e).replace("\t", " ").replace("\n", " ").replace("\r", " ").strip()[:200]
+        row = (
+            f"{sha}\t0.0000\t0.0000\t0.0000\t"
+            f"0.0000\t0.0000\t0.00\t0.0000\t"
+            f"crash\t{safe_description} | crash: {err_summary}\n"
+        )
+        with tsv.open("a", encoding="utf-8") as fh:
+            fh.write(row)
+        print(f"\nExperiment CRASHED — row appended to {tsv}:")
+        print(row.rstrip())
+        return 1
 
     train_f1 = ev["train"]["f1"]
     heldout_f1 = ev["heldout"]["f1"]
