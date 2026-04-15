@@ -16,45 +16,41 @@ Score formula:
   score = f1 - 0.005 * mean_latency_frames
 so F1 strictly dominates but latency breaks ties.
 
-NOTE: This module is a **script/test helper**, not a production import. It
-is intended to be invoked via `run_experiment.py`, `iterate.py`, or direct
-`python scratch/autoresearch_kobe/harness.py`. Those entry points preload
-`KOBE_ENV_FILE` to the shipped `empty.env` before importing `kobe.config`
-so the benchmark runs against pristine defaults. Importing this module
-from production code would bypass that setup and may read the developer's
-local `config/.env`.
+Determinism: `_pristine_settings()` constructs a fresh `Settings` with
+`_env_file=None, _env_prefix="NEVER_MATCH_"`, which bypasses both the
+class-frozen `env_file` path AND all `GESTURE_*`/other env var resolution.
+So the harness runs against the class defaults regardless of what the
+caller's `config/.env` or shell env say, and importing this module has no
+side effects on `os.environ` or `kobe.config.Settings`.
 """
 from __future__ import annotations
-
-# Scoped env override: temporarily point `KOBE_ENV_FILE` at the shipped
-# empty file, import `kobe.config` (which freezes `env_file` at class
-# definition via `_resolve_env_file()`), then RESTORE the original env
-# state. This way the Settings class is locked to pristine defaults, but
-# `os.environ` is unchanged for any subsequent caller code — so importing
-# this module doesn't silently redirect unrelated `Settings()` lookups in
-# the same process.
-import os as _os
-from pathlib import Path as _Path
-
-_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
-_ORIG_ENV = _os.environ.get("KOBE_ENV_FILE")
-_os.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
 
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
 
-from kobe.config import Settings  # noqa: E402 — must follow env override
-from kobe.gestures.classifier import GestureClassifier  # noqa: E402
+from kobe.config import Settings
+from kobe.gestures.classifier import GestureClassifier
 
-# Restore the caller's original env state so the mutation is scoped to
-# `kobe.config`'s class definition.
-if _ORIG_ENV is None:
-    _os.environ.pop("KOBE_ENV_FILE", None)
-else:
-    _os.environ["KOBE_ENV_FILE"] = _ORIG_ENV
+from synth import StreamCase, make_cases, split_cases
 
-from synth import StreamCase, make_cases, split_cases  # noqa: E402
+
+def _pristine_settings(**overrides: object) -> Settings:
+    """Build a `Settings` instance that ignores all env files and env vars.
+
+    Pydantic-settings resolves configuration in this order: kwargs > env
+    vars > env file > class defaults. `_env_file=None` disables the env
+    file lookup (overriding whatever `_resolve_env_file()` baked in at
+    class-definition time). `_env_prefix="NEVER_MATCH_"` re-points the env
+    var lookup at a prefix that no real variable uses, which effectively
+    turns off env var resolution too. The resulting instance reflects only
+    the Python class defaults plus the caller's explicit `overrides`.
+    """
+    return Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        _env_prefix="NEVER_MATCH_",  # type: ignore[call-arg]
+        **overrides,
+    )
 
 
 @dataclass
@@ -133,8 +129,11 @@ def evaluate(settings: Settings | None = None) -> dict[str, Any]:
 
     Returns dict with keys: `train`, `heldout`, `combined`, each a metrics dict.
     Also includes `per_stream` with the raw StreamResult list for debugging.
+
+    If `settings` is omitted, `_pristine_settings()` is used so the harness
+    is deterministic regardless of the caller's environment.
     """
-    settings = settings or Settings()
+    settings = settings or _pristine_settings()
     train_cases, heldout_cases = split_cases()
     train_results = [run_stream(c, settings) for c in train_cases]
     heldout_results = [run_stream(c, settings) for c in heldout_cases]

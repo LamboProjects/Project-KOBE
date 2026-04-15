@@ -10,25 +10,6 @@ The keep/discard decision is made by the iteration loop (the caller) based on
 """
 from __future__ import annotations
 
-# CRITICAL: set `KOBE_ENV_FILE` BEFORE importing anything that touches
-# `kobe.config`. `Settings.model_config.env_file = _resolve_env_file()` is
-# evaluated at class definition time (import time), so any env override must
-# be in place first or the harness will benchmark against a developer's
-# `config/.env` instead of pristine defaults.
-#
-# Pointing at `NUL` / `/dev/null` is NOT enough — `_resolve_env_file()`
-# iterates `KOBE_ENV_FILE` first but requires `p.is_file()` before using it,
-# which is False for device pseudo-files on both Windows and *nix. The
-# resolver then silently falls through to `config/.env` and leaks local
-# overrides into the benchmark. Instead we point at a REAL empty file
-# shipped next to this script.
-import os as _os_preload
-from pathlib import Path as _Path
-
-_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
-_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
-
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,8 +17,9 @@ from pathlib import Path
 # Make sibling modules importable when run as a script from the repo root.
 sys.path.insert(0, str(Path(__file__).parent))
 
-# The env override above must precede this import — `harness` pulls in
-# `kobe.config.Settings`, which freezes `env_file` at class definition.
+# `harness.evaluate()` without explicit Settings uses `_pristine_settings()`
+# which bypasses env_file AND env var resolution — so no pre-import env
+# massage is needed. See harness.py module docstring for the rationale.
 from harness import evaluate, format_report  # noqa: E402
 
 
@@ -66,10 +48,6 @@ def _git_dirty() -> bool:
 
 def main() -> int:
     description = sys.argv[1] if len(sys.argv) > 1 else "<unspecified>"
-    # Reaffirm the override for clarity; the critical assignment happens at
-    # module-top so the early `kobe.config` import sees the pristine path.
-    assert os.environ.get("KOBE_ENV_FILE") == _EMPTY_ENV
-
     sha = _git_short_sha()
     if _git_dirty():
         sha = f"{sha}-dirty"

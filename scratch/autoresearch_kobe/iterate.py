@@ -13,38 +13,23 @@ Usage:
         --param gesture_static_required --values 4,5 \
         --param gesture_static_window --values 5,6,7
 
-The script instantiates `Settings` with env overrides (via `**overrides` to the
-constructor — pydantic-settings honors kwargs) and runs the full harness for
-each combination. Prints a ranked table. Never writes to `results.tsv` — that's
-reserved for committed experiments.
+Each combination builds a `Settings` via `harness._pristine_settings(**overrides)`
+so the sweep is deterministic even if the caller's shell already has
+`GESTURE_*` env vars set. Prints a ranked table. Never writes to `results.tsv`
+— that's reserved for committed experiments.
 """
 from __future__ import annotations
 
-# CRITICAL: set `KOBE_ENV_FILE` BEFORE importing anything that touches
-# `kobe.config`. See run_experiment.py for the full explanation — in short,
-# `Settings.model_config.env_file` freezes at class definition time, AND
-# `NUL`/`/dev/null` aren't regular files so the resolver falls through to
-# `config/.env`. We point at a real empty file shipped next to this script.
-import os as _os_preload
-from pathlib import Path as _Path
-
-_EMPTY_ENV = str(_Path(__file__).resolve().parent / "empty.env")
-_os_preload.environ["KOBE_ENV_FILE"] = _EMPTY_ENV
-
 import argparse
 import itertools
-import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-# These imports trigger `kobe.config.Settings` class definition which
-# resolves `env_file` via `_resolve_env_file()`; the env override above
-# must be in place first.
 from kobe.config import Settings  # noqa: E402
 
-from harness import evaluate  # noqa: E402
+from harness import _pristine_settings, evaluate  # noqa: E402
 
 
 def _parse_value(raw: str) -> float | int | str | bool:
@@ -81,7 +66,7 @@ def _validate_param_names(names: list[str]) -> list[str]:
 
 
 def run_one(overrides: dict[str, object]) -> dict[str, float]:
-    settings = Settings(**overrides)  # type: ignore[arg-type]
+    settings = _pristine_settings(**overrides)
     ev = evaluate(settings)
     m = ev["combined"]
     return {
@@ -96,10 +81,6 @@ def run_one(overrides: dict[str, object]) -> dict[str, float]:
 
 
 def main() -> int:
-    # Reaffirm the override for clarity; the critical assignment happens at
-    # module-top so the early `kobe.config` import sees the pristine path.
-    assert os.environ.get("KOBE_ENV_FILE") == _EMPTY_ENV
-
     ap = argparse.ArgumentParser()
     ap.add_argument("--param", action="append", required=True, help="Param name, repeatable")
     ap.add_argument("--values", action="append", required=True, help="Comma-separated values, one --values per --param")
