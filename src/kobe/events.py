@@ -88,6 +88,15 @@ class MuteToggled:
     muted: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SystemStatus:
+    """Periodic system telemetry for the HUD."""
+    foreground_app: str
+    cpu_percent: float
+    memory_percent: float
+    timestamp_iso: str
+
+
 # Union of everything — handy for type hints in the bus.
 Event = (
     WakeDetected
@@ -101,4 +110,5 @@ Event = (
     | SpeakFinished
     | InterruptRequested
     | MuteToggled
+    | SystemStatus
 )

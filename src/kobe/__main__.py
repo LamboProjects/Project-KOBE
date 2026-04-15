@@ -35,6 +35,8 @@ async def _run_all() -> None:
     from kobe.brain.router import run_brain_service
     from kobe.actions.executor import run_action_executor
     from kobe.mute.service import run_mute_service
+    from kobe.hud.backend import run_hud_server
+    from kobe.system.status import run_system_status_service
 
     audio = AudioSource(sample_rate=settings.audio_sample_rate, device=settings.audio_input_device)
 
@@ -46,6 +48,8 @@ async def _run_all() -> None:
         tg.create_task(run_brain_service(bus, settings), name="brain")
         tg.create_task(run_action_executor(bus, settings), name="actions")
         tg.create_task(run_mute_service(bus, settings), name="mute")
+        tg.create_task(run_hud_server(bus, settings), name="hud")
+        tg.create_task(run_system_status_service(bus, settings), name="system-status")
 
 
 @app.command()

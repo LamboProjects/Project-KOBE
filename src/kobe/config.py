@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     # Mute
     mute_hotkey: str = "ctrl+alt+k"
 
+    # HUD
+    hud_host: str = "127.0.0.1"
+    hud_port: int = 8765
+    hud_enabled: bool = True
+
+    # System status polling
+    system_status_interval_s: float = 2.0
+
     # Logging
     log_level: str = "INFO"
 

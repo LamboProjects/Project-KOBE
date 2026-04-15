@@ -18,6 +18,11 @@ dependencies = [
     "elevenlabs>=1.10",
     "openai>=1.54",
     "keyboard>=0.13.5",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "psutil>=6.1",
+    "pygetwindow>=0.0.9",
+    "websockets>=13",
 ]
 
 [project.scripts]
